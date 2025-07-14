@@ -2,6 +2,7 @@ from py3270 import Emulator
 import os
 import logging
 import time
+import json
 
 # Configuração de logging
 logging.basicConfig(
@@ -12,9 +13,14 @@ logging.basicConfig(
 
 # Constantes - Separe configurações do código
 host = 'mainframe.exemplo.gov.br'  # ou IP/host do TN3270
-username = 'USUARIO123'  # Melhor usar variáveis de ambiente
-password = 'SENHA123'    # Melhor usar variáveis de ambiente ou cofre
-sistema = 'SIMCD'        # Sistema a ser acessado na lista
+atual_dir = os.path.dirname(os.path.abspath(__file__))
+json_file = os.path.join(atual_dir, 'config.json')
+
+def login_data():
+    global username, password
+    username = input("Digite seu nome de usuário: ")
+    password = input("Digite sua senha: ")
+    
 
 def connect_to_mainframe():
     """
@@ -199,6 +205,8 @@ def main():
     """
     Função principal que executa a sequência de automação
     """
+    global username, password
+    login_data()
     emulator = None
     try:
         # Estabelece conexão
@@ -210,7 +218,7 @@ def main():
             return
         
         # Navega para o sistema desejado
-        if not navigate_to_system(emulator, sistema):
+        if not navigate_to_system(emulator, system_code):
             logging.error("Falha ao navegar para o sistema. Abortando.")
             return
         
