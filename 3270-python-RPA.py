@@ -2,7 +2,6 @@ from py3270 import Emulator
 import os
 import logging
 import time
-import json
 
 logging.basicConfig(
     level=logging.INFO,
@@ -12,19 +11,19 @@ logging.basicConfig(
 
 host = 'mainframe.exemplo.gov.br'
 atual_dir = os.path.dirname(os.path.abspath(__file__))
-json_file = os.path.join(atual_dir, 'config.json')
 
 sistema = None
 
-def login_data():
-    global username, password
-    username = input("Digite seu nome de usuário: ")
-    password = input("Digite sua senha: ")
-    
+if os.name == 'nt':
+    downloads_path = os.path.join(os.environ['USERPROFILE'], 'Downloads')
+else:
+    downloads_path = os.path.join(os.environ['HOME'], 'Downloads') # Caso o sistema seja Linux ou macOS
 
 def connect_to_mainframe():
     try:
-        em = Emulator(visible=True)
+        emulator_path = os.path.join(downloads_path, '3270-emulator.exe')  # Caminho do emulador 3270
+        logging.info(f"Emulador 3270 localizado em: {emulator_path}")
+        em = Emulator(visible=True, cmdpath=emulator_path)
         logging.info(f"Conectando ao host: {host}")
         em.connect(host)
         return em
@@ -32,9 +31,31 @@ def connect_to_mainframe():
         logging.error(f"Erro ao conectar: {str(e)}")
         raise
 
-def login(emulator, username, password):
-    try:
+def reconnect_and_login(emulator, max_attempts=3, wait_time=5):
+    global username, password, host
+    for attempt in range(max_attempts):
+        logging.info(f"Tentativa {attempt + 1}/{max_attempts} de reconexão e login")
+        try:
+            emulator.connect(host)
+            logging.info("Reconexão bem-sucedido")
 
+            if login(emulator):
+                logging.info("Login bem-sucedido após reconexão")
+                return True
+            else:
+                logging.error("Falha no login após reconexão")
+        except Exception as e:
+            logging.error(f"Erro ao reconectar: {str(e)}")
+
+        time.sleep(wait_time)
+    logging.error("Número máximo de tentativas atingido. Abortando.")
+    return False
+
+def login(emulator):
+    global username, password
+    username = input("Digite seu nome de usuário: ")
+    password = input("Digite sua senha: ")
+    try:
         emulator.wait_for_field()
         logging.info("Tela inicial carregada")
         
@@ -147,11 +168,10 @@ def verify_screen_content(emulator, row, col, length, expected_text=None, error_
                 if error in screen_text:
                     logging.error(f"Texto de erro '{error}' encontrado")
                     return screen_text, False
-        
+    
         if expected_text:
             logging.warning(f"Texto esperado '{expected_text}' não encontrado")
             return screen_text, False
-            
         return screen_text, True
         
     except Exception as e:
@@ -160,28 +180,33 @@ def verify_screen_content(emulator, row, col, length, expected_text=None, error_
 
 def main():
     global username, password
-    login_data()
     emulator = None
     try:
         emulator = connect_to_mainframe()
-        
-        if not login(emulator, username, password):
+        if not login(emulator):
             logging.error("Falha no login. Abortando.")
             return
-        
         if not navigate_to_system(emulator, sistema):
             logging.error("Falha ao navegar para o sistema. Abortando.")
-            return
-        
+            if not reconnect_and_login(emulator):
+                logging.error("Falha na reconexão e login. Abortando.")
+                return
+            if not navigate_to_system(emulator, sistema):
+                logging.error("Falha ao navegar para o sistema após reconexão. Abortando.")
+                return   
+            
         if not input_data(emulator):
             logging.error("Falha ao inserir dados. Abortando.")
-            return
-        
+            if not reconnect_and_login(emulator):
+                logging.error("Falha na reconexão e login. Abortando.")
+                return
+            if not input_data(emulator):
+                logging.error("Falha ao inserir dados após reconexão. Abortando.")
+                return
         logging.info("Automação concluída com sucesso!")
     
     except Exception as e:
         logging.error(f"Erro inesperado: {str(e)}")
-    
     finally:
         if emulator:
             disconnect(emulator)
