@@ -41,25 +41,81 @@ sistema = None
 
 def security_check():
     try:
-        time.sleep(3)
-        app = Application(backend="win32").connect(title_re=".*Advertência.*", timeout=10)
-        dlg = app.window(title_re=".*Advertência.*")
+        time.sleep(5) 
         
-        if dlg.exists():
-            dlg['Continuar'].click()
-            logging.info("Advertência de segurança confirmada.")
-            time.sleep(2)
-            
+        title_patterns = [
+            ".*Advertência de Segurança.*", 
+        ]
+        
+        app_found = False
+        for pattern in title_patterns:
             try:
-                terminal_app = Application(backend="win32").connect(title_re=".*Terminal.*", timeout=10)
-                terminal_dlg = terminal_app.window(title_re=".*Terminal.*")
-                if terminal_dlg.exists():
-                    logging.info("Terminal 3270 está aberto.")
-                    return True
-            except:
-                logging.info("Terminal 3270 não encontrado ainda.")
+                logging.info(f"Tentando conectar com padrão: {pattern}")
+                app = Application(backend="win32").connect(title_re=pattern, timeout=15)
+                dlg = app.window(title_re=pattern)
                 
+                if dlg.exists():
+                    logging.info(f"Janela encontrada com padrão: {pattern}")
+                    app_found = True
+                    
+                    button_texts = ["Continuar", "Continue", "OK", "Sim", "Yes"]
+                    button_clicked = False
+                    
+                    for button_text in button_texts:
+                        try:
+                            if dlg[button_text].exists():
+                                dlg[button_text].click()
+                                logging.info(f"Botão '{button_text}' clicado com sucesso.")
+                                button_clicked = True
+                                break
+                        except Exception as btn_error:
+                            logging.debug(f"Botão '{button_text}' não encontrado: {btn_error}")
+                    
+                    if not button_clicked:
+                        try:
+                            buttons = dlg.children(control_type="Button")
+                            if buttons:
+                                buttons[0].click()
+                                logging.info("Primeiro botão disponível clicado.")
+                                button_clicked = True
+                        except Exception as generic_btn_error:
+                            logging.error(f"Erro ao clicar em botão genérico: {generic_btn_error}")
+                    
+                    if button_clicked:
+                        time.sleep(3)
+                        break
+                    
+            except Exception as pattern_error:
+                logging.debug(f"Padrão {pattern} não encontrado: {pattern_error}")
+                continue
+        
+        if not app_found:
+            logging.warning("Nenhuma janela de advertência encontrada com os padrões testados.")
+            return False
+        
+        time.sleep(3)
+        terminal_patterns = [
+            ".*Terminal.*",
+            ".*3270.*", 
+            ".*Emulator.*",
+            ".*HOD.*"
+        ]
+        
+        for pattern in terminal_patterns:
+            try:
+                logging.info(f"Procurando terminal com padrão: {pattern}")
+                terminal_app = Application(backend="win32").connect(title_re=pattern, timeout=10)
+                terminal_dlg = terminal_app.window(title_re=pattern)
+                if terminal_dlg.exists():
+                    logging.info(f"Terminal 3270 encontrado com padrão: {pattern}")
+                    return True
+            except Exception as terminal_error:
+                logging.debug(f"Terminal não encontrado com padrão {pattern}: {terminal_error}")
+                continue
+                
+        logging.info("Terminal 3270 não encontrado após confirmar advertência.")
         return False
+        
     except Exception as e:
         logging.error(f"Erro ao verificar a advertência de segurança: {str(e)}")
         return False
@@ -85,13 +141,6 @@ def open_3270_emulator(file_path=None):
                 file_url = f"file:///{file_path.replace(os.sep, '/')}"
                 os.startfile(file_url)
                 logging.info(f"Arquivo JSP aberto no navegador: {file_path}")
-                try:
-                    time.sleep(20)
-                    os.remove(file_path)
-                    logging.info(f"Arquivo {os.path.basename(file_path)} removido do diretório de downloads.")            
-                except Exception as remove_error:
-                    logging.warning(f"Não foi possível remover o arquivo: {remove_error}")
-
             except Exception as e:
                 logging.error(f"Erro ao abrir o arquivo no navegador: {e}")
                 return False
@@ -173,6 +222,12 @@ def main():
         if open_3270_emulator(file_path=new_file):
             if security_check():
                 logging.info("Conexão com o emulador 3270 estabelecida com sucesso.")
+                try:
+                    time.sleep(260)
+                    os.remove(new_file)
+                    logging.info(f"Arquivo {os.path.basename(new_file)} removido do diretório de downloads.")            
+                except Exception as remove_error:
+                    logging.warning(f"Não foi possível remover o arquivo: {remove_error}")
             else:
                 logging.error("Falha ao estabelecer conexão com o emulador 3270.")
         else:
