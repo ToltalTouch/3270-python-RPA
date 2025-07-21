@@ -5,7 +5,6 @@ from selenium.webdriver.edge.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.common.keys import Keys
 from py3270 import Emulator
 import getpass
 import os
@@ -25,9 +24,7 @@ atual_dir = os.path.dirname(os.path.abspath(__file__))
 
 userpath = os.getlogin()
 
-archive_name = "hodcivws.jsp"
 download_dir = f"C:\\Users\\{userpath}\\Downloads"
-archive_path = os.path.join(download_dir, archive_name)
 
 edge_path = os.path.join(atual_dir, "edgedriver_win64", "msedgedriver.exe")
 
@@ -37,17 +34,10 @@ edge_options.add_argument("--headless")
 driver = webdriver.Edge(service=webdriver_service, options=edge_options)
 
 wait = WebDriverWait(driver, 260)
-sistema = None
 
 def security_check():
     try:
-        time.sleep(5) 
-        
-        title_patterns = [
-            ".*Advertência de Segurança.*", 
-        ]
-        
-        app_found = False
+        title_patterns = [".*Advertência de Segurança.*"]
         for pattern in title_patterns:
             try:
                 logging.info(f"Tentando conectar com padrão: {pattern}")
@@ -56,76 +46,41 @@ def security_check():
                 
                 if dlg.exists():
                     logging.info(f"Janela encontrada com padrão: {pattern}")
-                    app_found = True
-                    
-                    button_texts = ["Continuar", "Continue", "OK", "Sim", "Yes"]
-                    button_clicked = False
-                    
-                    for button_text in button_texts:
-                        try:
-                            if dlg[button_text].exists():
-                                dlg[button_text].click()
-                                logging.info(f"Botão '{button_text}' clicado com sucesso.")
-                                button_clicked = True
-                                break
-                        except Exception as btn_error:
-                            logging.debug(f"Botão '{button_text}' não encontrado: {btn_error}")
-                    
-                    if not button_clicked:
-                        try:
-                            buttons = dlg.children(control_type="Button")
-                            if buttons:
-                                buttons[0].click()
-                                logging.info("Primeiro botão disponível clicado.")
-                                button_clicked = True
-                        except Exception as generic_btn_error:
-                            logging.error(f"Erro ao clicar em botão genérico: {generic_btn_error}")
-                    
-                    if button_clicked:
-                        time.sleep(3)
-                        break
+       
+                    try:
+                        logging.info("Tentando simular tecla Enter.")
+                        dlg.type_keys("{TAB}" * 2 + "{ENTER}", pause=0.5)
+                        logging.info("Tecla ENTER enviada com sucesso.")
+                    except Exception as key_error:
+                        logging.debug(f"Erro ao enviar tecla: {key_error}")
                     
             except Exception as pattern_error:
                 logging.debug(f"Padrão {pattern} não encontrado: {pattern_error}")
                 continue
         
-        if not app_found:
-            logging.warning("Nenhuma janela de advertência encontrada com os padrões testados.")
-            return False
-        
-        time.sleep(3)
-        terminal_patterns = [
-            ".*Terminal.*",
-            ".*3270.*", 
-            ".*Emulator.*",
-            ".*HOD.*"
-        ]
-        
-        for pattern in terminal_patterns:
-            try:
-                logging.info(f"Procurando terminal com padrão: {pattern}")
-                terminal_app = Application(backend="win32").connect(title_re=pattern, timeout=10)
-                terminal_dlg = terminal_app.window(title_re=pattern)
-                if terminal_dlg.exists():
-                    logging.info(f"Terminal 3270 encontrado com padrão: {pattern}")
-                    return True
-            except Exception as terminal_error:
-                logging.debug(f"Terminal não encontrado com padrão {pattern}: {terminal_error}")
-                continue
-                
-        logging.info("Terminal 3270 não encontrado após confirmar advertência.")
-        return False
-        
     except Exception as e:
         logging.error(f"Erro ao verificar a advertência de segurança: {str(e)}")
         return False
 
+def recognize_3270_emulator():
+    terminal_patterns = [".*Terminal 3270.*"]
+        
+    for pattern in terminal_patterns:
+        try:
+            logging.info(f"Procurando terminal com padrão: {pattern}")
+            terminal_app = Application(backend="win32").connect(title_re=pattern, timeout=10)
+            terminal_dlg = terminal_app.window(title_re=pattern)
+            if terminal_dlg.exists():
+                logging.info(f"Terminal 3270 encontrado com padrão: {pattern}")
+                return True
+        except Exception as terminal_error:
+            logging.debug(f"Terminal não encontrado com padrão {pattern}: {terminal_error}")
+            continue
+
 def open_3270_emulator(file_path=None):
     try:
-        encodings = ['utf-8', 'latin1', 'cp1252', 'iso-8859-1']
-        content = None
-        
-        for encoding in encodings:
+        content = None    
+        for encoding in ['utf-8']:
             try:
                 with open(file_path, 'r', encoding=encoding) as file:
                     content = file.read()
@@ -139,6 +94,7 @@ def open_3270_emulator(file_path=None):
 
             try:
                 file_url = f"file:///{file_path.replace(os.sep, '/')}"
+                logging.info(f"Abrindo arquivo JSP no navegador: {file_url}")
                 os.startfile(file_url)
                 logging.info(f"Arquivo JSP aberto no navegador: {file_path}")
             except Exception as e:
@@ -173,7 +129,6 @@ def wait_for_download(download_dir, timeout=60):
     return None
 
 def download_3270_emulator(password=None, username=None):
-    """Realiza o download do emulador 3270"""
     try:
         wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="login_user"]'))).send_keys(username)
         wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="login_password"]'))).send_keys(password)
@@ -209,7 +164,7 @@ def main():
             logging.error("Usuário inválido")
         except Exception as e:
             logging.error(f"Erro ao obter usuário: {str(e)}")
-    
+
     password = getpass.getpass("Digite sua senha: ")
 
     logging.info("Credenciais recebidas com sucesso.")
@@ -222,12 +177,11 @@ def main():
         if open_3270_emulator(file_path=new_file):
             if security_check():
                 logging.info("Conexão com o emulador 3270 estabelecida com sucesso.")
-                try:
-                    time.sleep(260)
+                if recognize_3270_emulator():
+                    logging.info("Emulador 3270 reconhecido com sucesso.")
                     os.remove(new_file)
-                    logging.info(f"Arquivo {os.path.basename(new_file)} removido do diretório de downloads.")            
-                except Exception as remove_error:
-                    logging.warning(f"Não foi possível remover o arquivo: {remove_error}")
+                else:
+                    logging.error("Emulador 3270 não reconhecido.")
             else:
                 logging.error("Falha ao estabelecer conexão com o emulador 3270.")
         else:
