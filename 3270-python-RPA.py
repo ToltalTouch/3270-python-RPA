@@ -3,6 +3,7 @@ from selenium import webdriver
 from selenium.webdriver.edge.service import Service
 from selenium.webdriver.edge.options import Options
 from selenium.webdriver.common.by import By
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from py3270 import Emulator
@@ -25,12 +26,11 @@ atual_dir = os.path.dirname(os.path.abspath(__file__))
 userpath = os.getlogin()
 
 download_dir = f"C:\\Users\\{userpath}\\Downloads"
-
 edge_path = os.path.join(atual_dir, "edgedriver_win64", "msedgedriver.exe")
 
 webdriver_service = Service(executable_path=edge_path)
 edge_options = Options()
-edge_options.add_argument("--headless")
+edge_options.add_argument("--maximize-window")
 driver = webdriver.Edge(service=webdriver_service, options=edge_options)
 
 wait = WebDriverWait(driver, 260)
@@ -51,6 +51,7 @@ def security_check():
                         logging.info("Tentando simular tecla Enter.")
                         dlg.type_keys("{TAB}" * 2 + "{ENTER}", pause=0.5)
                         logging.info("Tecla ENTER enviada com sucesso.")
+                        return True
                     except Exception as key_error:
                         logging.debug(f"Erro ao enviar tecla: {key_error}")
                     
@@ -62,20 +63,38 @@ def security_check():
         logging.error(f"Erro ao verificar a advertência de segurança: {str(e)}")
         return False
 
-def recognize_3270_emulator():
+def recognize_3270_emulator(timeout=40):
+    start_time = time.time()
     terminal_patterns = [".*Terminal 3270.*"]
-        
-    for pattern in terminal_patterns:
+
+    while time.time() - start_time < timeout:
         try:
-            logging.info(f"Procurando terminal com padrão: {pattern}")
-            terminal_app = Application(backend="win32").connect(title_re=pattern, timeout=10)
-            terminal_dlg = terminal_app.window(title_re=pattern)
-            if terminal_dlg.exists():
-                logging.info(f"Terminal 3270 encontrado com padrão: {pattern}")
-                return True
-        except Exception as terminal_error:
-            logging.debug(f"Terminal não encontrado com padrão {pattern}: {terminal_error}")
-            continue
+            for pattern in terminal_patterns:
+                try:
+                    logging.info(f"Procurando terminal com padrão: {pattern}")
+                    terminal_app = Application(backend="win32").connect(title_re=pattern, timeout=5)
+                    terminal_dlg = terminal_app.window(title_re=pattern)
+                    
+                    if terminal_dlg.exists():
+                        terminal_dlg.wait("exists", timeout=5)
+                        terminal_dlg.wait("visible", timeout=5)
+                        
+                        logging.info(f"Terminal 3270 encontrado e visível com padrão: {pattern}")
+                        return True
+                        
+                except Exception as terminal_error:
+                    logging.debug(f"Terminal não encontrado com padrão {pattern}: {terminal_error}")
+                    continue
+            
+            logging.info(f"Aguardando terminal aparecer... {int(timeout - (time.time() - start_time))}s restantes")
+            time.sleep(2)
+            
+        except Exception as e:
+            logging.error(f"Erro ao reconhecer o emulador 3270: {str(e)}")
+            time.sleep(2)
+    
+    logging.warning(f"Terminal 3270 não encontrado após {timeout} segundos.")
+    return False
 
 def open_3270_emulator(file_path=None):
     try:
@@ -91,12 +110,10 @@ def open_3270_emulator(file_path=None):
         
         if "hodcivws" in content:
             logging.info("Emulador 3270 encontrado no arquivo.")
-
             try:
                 file_url = f"file:///{file_path.replace(os.sep, '/')}"
-                logging.info(f"Abrindo arquivo JSP no navegador: {file_url}")
                 os.startfile(file_url)
-                logging.info(f"Arquivo JSP aberto no navegador: {file_path}")
+
             except Exception as e:
                 logging.error(f"Erro ao abrir o arquivo no navegador: {e}")
                 return False
@@ -128,62 +145,118 @@ def wait_for_download(download_dir, timeout=60):
     logging.info(f"Timeout de {timeout} segundos atingido. Nenhum arquivo novo encontrado.")
     return None
 
-def download_3270_emulator(password=None, username=None):
-    try:
-        wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="login_user"]'))).send_keys(username)
-        wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="login_password"]'))).send_keys(password)
-        driver.find_element(By.XPATH, '//*[@id="login_button"]').click()
-        logging.info("Tentando efetuar download do emulador 3270.")
-        time.sleep(3)
+def download_3270_emulator(password=None, username=None, max_retries=3):
+    retry_attempt = 0
+    
+    while retry_attempt < max_retries:
+        try:
+            if retry_attempt > 0:
+                logging.info(f"Recarregando página para tentativa {retry_attempt + 1}...")
+                driver.get(host)
+                wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="login_user"]')))
+                time.sleep(2)
+            
+            username, password = get_credentials(username, password, retry_attempt)
 
+            logging.info(f"Tentativa {retry_attempt + 1} - Acessando o site para download do emulador 3270.")
+
+            wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="login_user"]'))).send_keys(username)
+            wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="login_password"]'))).send_keys(password)
+
+            driver.find_element(By.XPATH, '//*[@id="login_button"]').click()
+            logging.info("Tentando efetuar login do emulador 3270.")
+
+            has_error, error_messages = check_login_errors()
+            
+            if has_error:
+                logging.error(f"Erro de credenciais na tentativa {retry_attempt + 1}:")
+                for msg in error_messages:
+                    logging.error(f"  - {msg}")
+                
+                retry_attempt += 1
+                
+                if retry_attempt < max_retries:
+                    logging.info(f"Tentando novamente... ({retry_attempt + 1}/{max_retries})")
+                    username = None
+                    password = None
+                    continue
+                else:
+                    logging.error(f"Máximo de tentativas ({max_retries}) atingido. Encerrando.")
+                    return None
+            logging.info("Login realizado com sucesso!")
+
+        except TimeoutException:
+            try:
+                error_element = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="mensagem"]/p[2]/span')))
+                error_message = error_element.text
+                logging.error(f"Erro ao efetuar Login: {error_message}")
+                try:
+                    driver.get(host)
+                except Exception as e:
+                    logging.error(f"Erro ao tentar recarregar a página: {str(e)}")
+            except Exception as e:
+                logging.error(f"Erro ao localizar mensagem de erro: {str(e)}")
+                return None
+            
         new_file = wait_for_download(download_dir)
-        if new_file:
-            logging.info(f"Arquivo baixado: {new_file}")
-            driver.quit()
-            return new_file  # Retorna o caminho do arquivo baixado
-        else:
+        if not new_file:
             logging.info("Nenhum arquivo baixado encontrado.")
-            driver.quit()
             return None
+        return new_file
 
+def get_credentials(username=None, password=None, retry_attempt=0):
+    if retry_attempt == 0:
+        logging.info("Obtendo credenciais...")
+    else:
+        logging.info(f"Tentativa {retry_attempt + 1} - Digite novas credenciais:")
+
+    if username is None or retry_attempt > 0:
+        username = input("Digite o usuario (CPF): ")
+    
+    if password is None or retry_attempt > 0:
+        password = getpass.getpass("Digite a senha: ")
+
+    return username, password
+
+def check_login_errors():
+    try:
+        error_xpaths = [
+            "//span[@class='mensagem' and contains(text(), 'Senha nao confere')]",
+            "//span[@class='mensagem' and contains(text(), 'Usuário não cadastrado')]",
+            "//span[@class='mensagem']"
+        ]
+        
+        error_messages = []
+        for xpath in error_xpaths:
+            try:
+                elements = driver.find_elements(By.XPATH, xpath)
+                for element in elements:
+                    if element.is_displayed() and element.text.strip():
+                        error_messages.append(element.text.strip())
+            except:
+                continue
+        
+        return len(error_messages) > 0, error_messages
+        
     except Exception as e:
-        logging.error(f"Erro ao acessar o site: {str(e)}")
-        driver.quit()
-        return None
+        logging.debug(f"Erro ao verificar mensagens de erro: {e}")
+        return False, []
 
 def main():
-    global password, username
     driver.get(host)
-    logging.info(f"Diretório de downloads: {download_dir}")
-
-    while True:
-        try:
-            username = input("Digite seu usuario (CPF): ")
-            if len(username) <= 12:
-                break
-            logging.error("Usuário inválido")
-        except Exception as e:
-            logging.error(f"Erro ao obter usuário: {str(e)}")
-
-    password = getpass.getpass("Digite sua senha: ")
-
-    logging.info("Credenciais recebidas com sucesso.")
     time.sleep(3)
-    logging.info("Iniciando o processo de download do emulador 3270.")
-    wait.until(EC.presence_of_element_located((By.XPATH, '/html/body')))
-    
-    new_file = download_3270_emulator(password=password, username=username)
+
+    new_file = download_3270_emulator()
     if new_file:
         if open_3270_emulator(file_path=new_file):
             if security_check():
                 logging.info("Conexão com o emulador 3270 estabelecida com sucesso.")
-                if recognize_3270_emulator():
-                    logging.info("Emulador 3270 reconhecido com sucesso.")
-                    os.remove(new_file)
-                else:
-                    logging.error("Emulador 3270 não reconhecido.")
+                time.sleep(5)
+                recognize_3270_emulator()
+                os.remove(new_file)
             else:
                 logging.error("Falha ao estabelecer conexão com o emulador 3270.")
+                os.remove(new_file)
         else:
             logging.error("Falha ao abrir o emulador 3270.")
             os.remove(new_file)
