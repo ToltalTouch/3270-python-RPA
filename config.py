@@ -1,5 +1,5 @@
 import os
-from dataclasses import dataclass  # Corrigido 'datacalasses'
+from dataclasses import dataclass
 from typing import List
 
 @dataclass
@@ -9,32 +9,37 @@ class AppConfig:
     DEFAULT_TIMEOUT: int = 60
     ELEMENT_WAIT_TIMEOUT: int = 260
     SECURITY_CHECK_TIMEOUT: int = 15
-    TERMINAL_RECOGNITION_TIMEOUT: int = 40  # Corrigido 'REGONITION'
+    TERMINAL_RECOGNITION_TIMEOUT: int = 40
     CONNECTION_CHECK_INTERVAL: int = 20
 
-    MAX_RETRIES: int = 3  # Corrigido 'MAX_RETRIE'
+    MAX_RETRIES: int = 3
 
-    DOWNLOAD_FILE_EXTENSION: str = '.jsp'
+    # Corrigido: extensões comuns para arquivos de terminal 3270
+    DOWNLOAD_FILE_EXTENSIONS: List[str] = None
 
     SECURITY_WARNING_PATTERNS: List[str] = None
     TERMINAL_PATTERNS: List[str] = None
-    DISCONNECTION_INDICATORS: List[str] = None  # Corrigido 'INDICATOR' para plural
-    CONNECTION_INDICATORS: List[str] = None  # Corrigido 'INDICATOR' para plural
+    DISCONNECTION_INDICATORS: List[str] = None
+    CONNECTION_INDICATORS: List[str] = None
 
     def __post_init__(self):
+        if self.DOWNLOAD_FILE_EXTENSIONS is None:
+            # Extensões mais comuns para arquivos de terminal 3270
+            self.DOWNLOAD_FILE_EXTENSIONS = ['.jsp']
+            
         if self.SECURITY_WARNING_PATTERNS is None:
             self.SECURITY_WARNING_PATTERNS = [".*Advertência de Segurança.*"]
 
         if self.TERMINAL_PATTERNS is None:
             self.TERMINAL_PATTERNS = [".*Terminal 3270.*"]
 
-        if self.DISCONNECTION_INDICATORS is None:  # Corrigido para plural
+        if self.DISCONNECTION_INDICATORS is None:
             self.DISCONNECTION_INDICATORS = ["MA?",
                                             "Desconectado",
                                             "659",
                                             "/001"]
         
-        if self.CONNECTION_INDICATORS is None:  # Corrigido para plural
+        if self.CONNECTION_INDICATORS is None:
             self.CONNECTION_INDICATORS = ["MENU DE SISTEMA",
                                          "CODIGO",
                                          "USUARIO",
