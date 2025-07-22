@@ -30,10 +30,13 @@ edge_path = os.path.join(atual_dir, "edgedriver_win64", "msedgedriver.exe")
 
 webdriver_service = Service(executable_path=edge_path)
 edge_options = Options()
-edge_options.add_argument("--maximize-window")
+edge_options.add_argument("--headless")
 driver = webdriver.Edge(service=webdriver_service, options=edge_options)
 
 wait = WebDriverWait(driver, 260)
+
+saved_user = None
+saved_password = None
 
 def security_check():
     try:
@@ -204,20 +207,6 @@ def download_3270_emulator(password=None, username=None, max_retries=3):
             return None
         return new_file
 
-def get_credentials(username=None, password=None, retry_attempt=0):
-    if retry_attempt == 0:
-        logging.info("Obtendo credenciais...")
-    else:
-        logging.info(f"Tentativa {retry_attempt + 1} - Digite novas credenciais:")
-
-    if username is None or retry_attempt > 0:
-        username = input("Digite o usuario (CPF): ")
-    
-    if password is None or retry_attempt > 0:
-        password = getpass.getpass("Digite a senha: ")
-
-    return username, password
-
 def check_login_errors():
     try:
         error_xpaths = [
@@ -241,8 +230,133 @@ def check_login_errors():
     except Exception as e:
         logging.debug(f"Erro ao verificar mensagens de erro: {e}")
         return False, []
+    
+def get_credentials(username=None, password=None, retry_attempt=0):
+    try:
+        username = username or saved_user
+        password = password or saved_password
+        if retry_attempt == 0:
+            logging.info("Obtendo credenciais...")
+        else:
+            logging.info(f"Tentativa {retry_attempt + 1} - Digite novas credenciais:")
+
+        if username is None or retry_attempt > 0:
+            username = input("Digite o usuario (CPF): ")
+            saved_user = username
+        
+        if password is None or retry_attempt > 0:
+            password = getpass.getpass("Digite a senha: ")
+            saved_password = password
+
+        return username, password
+    
+    except Exception as e:
+        logging.error(f"Erro ao obter credenciais: {str(e)}")
+        return None, None
+
+def check_3270_connection():
+    try:
+        em = Emulator(visible=True)
+        screen_content = em.string_get(1, 1, 80, 24)
+        non_empty_lines = [line.strip() for line in screen_content.split('\n') if line.strip()]
+        if len(non_empty_lines) <= 3:
+            logging.info("Conexão com o 3270 foi perdida")
+
+            disconnection_indicators = [
+                "MA?",
+                "Desconectado",
+                "659",
+                "/001"
+            ]
+
+            screen_lower = screen_content.lower()
+            disconnected = any(indicator.lower() in screen_lower for indicator in disconnection_indicators)
+
+            if disconnected:
+                logging.info("Conexão com o 3270 foi perdida.")
+                open_3270_file()
+                return True
+            
+        else:
+            connected_indicators = [
+                "MENU DE SISTEMA",
+                "CODIGO",
+                "USUARIO",
+                "PF3",
+                "PF7"
+            ]
+
+            is_connected = any(indicator in screen_content for indicator in connected_indicators)
+
+            if is_connected:
+                logging.info("Conexão com o 3270 está ativa.")
+                return False
+            else:
+                logging.info("Conexão com o 3270 não está ativa, tentando reconectar.")
+                open_3270_file()
+                return True
+            
+    except Exception as e:
+        logging.error(f"Erro ao verificar conexão com o 3270: {str(e)}")
+        logging.error(f"Assumindo deconexaão com o 3270 - Reabrindo o emulador")
+        open_3270_file()
+        return True
+
+def open_3270_file():
+    global saved_user, saved_password
+    logging.info("Iniciando processo de conexão como terminal 3270")
+    new_file = download_3270_emulator()
+    try:
+        if new_file:
+            if open_3270_emulator(file_path=new_file):
+                if security_check():
+                    logging.info("Conexão com o emulador 3270 estabelecida com sucesso.")
+                    time.sleep(5)
+                    if recognize_3270_emulator():
+                        logging.info("Emulador 3270 reconhecido com sucesso.")
+                        time.sleep(5)
+                        os.remove(new_file)
+                        return True
+                    else:
+                        logging.error("Falha ao reconhecer o emulador 3270.")
+                        os.remove(new_file)
+                        return False
+                else:
+                    logging.error("Falha ao estabelecer conexão com o emulador 3270.")
+                    os.remove(new_file)
+                    return False
+            else:
+                logging.error("Falha ao abrir o emulador 3270.")
+                os.remove(new_file)
+                return False
+        else:
+            logging.error("Falha no download do emulador 3270.")
+            return False
+    except Exception as e:
+        logging.error(f"Erro ao abrir o emulador 3270: {str(e)}")
+        if new_file and os.path.exists(new_file):
+            os.remove(new_file)
+
+def monitor_3270_connection(check_interval=20):
+    while True:
+        try:
+            is_disconnected = check_3270_connection()
+            if is_disconnected:
+                logging.info("Processos de reconexão conluído.")
+            else:
+                logging.info("Conexão com o 3270 está ativa.")
+
+            time.sleep(check_interval)
+        except Exception as e:
+            logging.error(f"Erro durante o monitoramento da conexão 3270: {str(e)}")
+            time.sleep(check_interval)
+        except KeyboardInterrupt:
+            logging.info("Monitoramento interrompido pelo usuário.")
+            break
 
 def main():
+    global saved_user, saved_password
+
     driver.get(host)
     time.sleep(3)
 
@@ -252,16 +366,20 @@ def main():
             if security_check():
                 logging.info("Conexão com o emulador 3270 estabelecida com sucesso.")
                 time.sleep(5)
-                recognize_3270_emulator()
-                os.remove(new_file)
+                if recognize_3270_emulator():
+                    logging.info("Emulador 3270 reconhecido com sucesso.")
+                    time.sleep(5)
+                    os.remove(new_file)
+                    monitor_3270_connection()
+                else:
+                    logging.error("Falha ao reconhecer o emulador 3270.")
+                    os.remove(new_file)
             else:
                 logging.error("Falha ao estabelecer conexão com o emulador 3270.")
                 os.remove(new_file)
         else:
             logging.error("Falha ao abrir o emulador 3270.")
             os.remove(new_file)
-    else:
-        logging.error("Falha no download do emulador 3270.")
 
 if __name__ == "__main__":
     main()
