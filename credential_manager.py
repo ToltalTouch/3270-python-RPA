@@ -15,7 +15,7 @@ class CredentialManager:
             username = username or self._username
             password = password or self._password
 
-            if retry_attempts > 0:
+            if retry_attempts == 0:  # Corrigido: primeira tentativa
                 logging.info("Obtendo credenciais do usuário.")
             else:
                 logging.info(f"Tentativa {retry_attempts + 1} - Digite novamente")
