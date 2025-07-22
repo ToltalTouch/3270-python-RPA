@@ -1,4 +1,5 @@
 from pywinauto.application import Application
+from pywinauto.application import ProcessNotFoundError
 from selenium import webdriver
 from selenium.webdriver.edge.service import Service
 from selenium.webdriver.edge.options import Options
@@ -7,379 +8,438 @@ from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from py3270 import Emulator
-import getpass
 import os
 import logging
 import time
+from typing import Optional, Tuple, List
+from contextlib import contextmanager
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    filename='mainframe_automation.log'
-)
+from config import AppConfig
+from credential_manager import CredentialManager
 
-logging.getLogger().addHandler(logging.StreamHandler())
-
-host = r'https://hod.serpro.gov.br/a83016cv/'
-atual_dir = os.path.dirname(os.path.abspath(__file__))
-
-userpath = os.getlogin()
-
-download_dir = f"C:\\Users\\{userpath}\\Downloads"
-edge_path = os.path.join(atual_dir, "edgedriver_win64", "msedgedriver.exe")
-
-webdriver_service = Service(executable_path=edge_path)
-edge_options = Options()
-edge_options.add_argument("--headless")
-driver = webdriver.Edge(service=webdriver_service, options=edge_options)
-
-wait = WebDriverWait(driver, 260)
-
-saved_user = None
-saved_password = None
-
-def security_check():
-    try:
-        title_patterns = [".*Advertência de Segurança.*"]
-        for pattern in title_patterns:
-            try:
-                logging.info(f"Tentando conectar com padrão: {pattern}")
-                app = Application(backend="win32").connect(title_re=pattern, timeout=15)
-                dlg = app.window(title_re=pattern)
-                
-                if dlg.exists():
-                    logging.info(f"Janela encontrada com padrão: {pattern}")
-       
-                    try:
-                        logging.info("Tentando simular tecla Enter.")
-                        dlg.type_keys("{TAB}" * 2 + "{ENTER}", pause=0.5)
-                        logging.info("Tecla ENTER enviada com sucesso.")
-                        return True
-                    except Exception as key_error:
-                        logging.debug(f"Erro ao enviar tecla: {key_error}")
-                    
-            except Exception as pattern_error:
-                logging.debug(f"Padrão {pattern} não encontrado: {pattern_error}")
-                continue
+class Mainframe3270Automation:
+    def __init__(self, config: AppConfig = None):
+        self.config = config or AppConfig()
+        self.credential_manager = CredentialManager()
+        self.driver = None
+        self.wait = None
         
-    except Exception as e:
-        logging.error(f"Erro ao verificar a advertência de segurança: {str(e)}")
-        return False
-
-def recognize_3270_emulator(timeout=40):
-    start_time = time.time()
-    terminal_patterns = [".*Terminal 3270.*"]
-
-    while time.time() - start_time < timeout:
+        self.setup_logging()
+        self.setup_webdriver()
+        
+    def setup_logging(self):  # Removido underscore extra
+        logging.basicConfig(
+            level=logging.INFO,
+            format='%(asctime)s - %(levelname)s - %(message)s',
+            filename=self.config.log_file,
+            filemode='a'
+        )
+        
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')  # Corrigido 'formater'
+        console_handler.setFormatter(formatter)
+        logging.getLogger().addHandler(console_handler)
+        
+    def setup_webdriver(self):
         try:
-            for pattern in terminal_patterns:
-                try:
-                    logging.info(f"Procurando terminal com padrão: {pattern}")
-                    terminal_app = Application(backend="win32").connect(title_re=pattern, timeout=5)
-                    terminal_dlg = terminal_app.window(title_re=pattern)
-                    
-                    if terminal_dlg.exists():
-                        terminal_dlg.wait("exists", timeout=5)
-                        terminal_dlg.wait("visible", timeout=5)
-                        
-                        logging.info(f"Terminal 3270 encontrado e visível com padrão: {pattern}")
-                        return True
-                        
-                except Exception as terminal_error:
-                    logging.debug(f"Terminal não encontrado com padrão {pattern}: {terminal_error}")
-                    continue
+            if not os.path.exists(self.config.edge_path):
+                raise FileNotFoundError(f"Edge driver not found at {self.config.edge_path}")
             
-            logging.info(f"Aguardando terminal aparecer... {int(timeout - (time.time() - start_time))}s restantes")
-            time.sleep(2)
+            service = Service(executable_path=self.config.edge_path)
+            options = Options()
+            options.add_argument("--headless")
+            options.add_argument("--no-sandbox")
+            options.add_argument("--disable-dev-shm-usage")
+            
+            self.driver = webdriver.Edge(service=service, options=options)
+            self.wait = WebDriverWait(self.driver, self.config.ELEMENT_WAIT_TIMEOUT)
             
         except Exception as e:
-            logging.error(f"Erro ao reconhecer o emulador 3270: {str(e)}")
-            time.sleep(2)
+            logging.error(f"Failed to set up WebDriver: {str(e)}")
+            raise
     
-    logging.warning(f"Terminal 3270 não encontrado após {timeout} segundos.")
-    return False
-
-def open_3270_emulator(file_path=None):
-    try:
-        content = None    
-        for encoding in ['utf-8']:
-            try:
-                with open(file_path, 'r', encoding=encoding) as file:
-                    content = file.read()
-                    logging.info(f"Arquivo lido com codificação: {encoding}")
-                    break
-            except UnicodeDecodeError:
-                continue
-        
-        if "hodcivws" in content:
-            logging.info("Emulador 3270 encontrado no arquivo.")
-            try:
-                file_url = f"file:///{file_path.replace(os.sep, '/')}"
-                os.startfile(file_url)
-
-            except Exception as e:
-                logging.error(f"Erro ao abrir o arquivo no navegador: {e}")
-                return False
-            
-            return True
-            
-    except Exception as e:
-        logging.error(f"Erro ao processar o arquivo {os.path.basename(file_path) if file_path else 'desconhecido'}: {str(e)}")
-        return False
-
-def wait_for_download(download_dir, timeout=60):
-    start_time = time.time()
-    initial_files = set()
-    
-    while time.time() - start_time < timeout:
-        if os.path.exists(download_dir):
-            current_files = {f for f in os.listdir(download_dir) if f.endswith('.jsp')}
-            new_files = current_files - initial_files
-            
-            if new_files:
-                newest_file = max([os.path.join(download_dir, f) for f in current_files], key=os.path.getmtime)
-                logging.info(f"Novo arquivo detectado: {newest_file}")
-                return newest_file
-            
-            logging.info(f"Arquivos encontrados no diretório de downloads: {current_files}")
-        
-        time.sleep(1)
-    
-    logging.info(f"Timeout de {timeout} segundos atingido. Nenhum arquivo novo encontrado.")
-    return None
-
-def download_3270_emulator(password=None, username=None, max_retries=3):
-    retry_attempt = 0
-    
-    while retry_attempt < max_retries:
+    @contextmanager
+    def _safe_file_operation(self, file_path: str):
         try:
-            if retry_attempt > 0:
-                logging.info(f"Recarregando página para tentativa {retry_attempt + 1}...")
-                driver.get(host)
-                wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="login_user"]')))
-                time.sleep(2)
-            
-            username, password = get_credentials(username, password, retry_attempt)
-
-            logging.info(f"Tentativa {retry_attempt + 1} - Acessando o site para download do emulador 3270.")
-
-            wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="login_user"]'))).send_keys(username)
-            wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="login_password"]'))).send_keys(password)
-
-            driver.find_element(By.XPATH, '//*[@id="login_button"]').click()
-            logging.info("Tentando efetuar login do emulador 3270.")
-
-            has_error, error_messages = check_login_errors()
-            
-            if has_error:
-                logging.error(f"Erro de credenciais na tentativa {retry_attempt + 1}:")
-                for msg in error_messages:
-                    logging.error(f"  - {msg}")
-                
-                retry_attempt += 1
-                
-                if retry_attempt < max_retries:
-                    logging.info(f"Tentando novamente... ({retry_attempt + 1}/{max_retries})")
-                    username = None
-                    password = None
-                    continue
-                else:
-                    logging.error(f"Máximo de tentativas ({max_retries}) atingido. Encerrando.")
-                    return None
-            logging.info("Login realizado com sucesso!")
-
-        except TimeoutException:
-            try:
-                error_element = wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="mensagem"]/p[2]/span')))
-                error_message = error_element.text
-                logging.error(f"Erro ao efetuar Login: {error_message}")
+            yield file_path
+        finally:
+            if file_path and os.path.exists(file_path):
                 try:
-                    driver.get(host)
+                    os.remove(file_path)
+                    logging.info(f"Arquivo temporario removido: {file_path}")
                 except Exception as e:
-                    logging.error(f"Erro ao tentar recarregar a página: {str(e)}")
-            except Exception as e:
-                logging.error(f"Erro ao localizar mensagem de erro: {str(e)}")
-                return None
-            
-        new_file = wait_for_download(download_dir)
-        if not new_file:
-            logging.info("Nenhum arquivo baixado encontrado.")
-            return None
-        return new_file
-
-def check_login_errors():
-    try:
-        error_xpaths = [
-            "//span[@class='mensagem' and contains(text(), 'Senha nao confere')]",
-            "//span[@class='mensagem' and contains(text(), 'Usuário não cadastrado')]",
-            "//span[@class='mensagem']"
-        ]
+                    logging.error(f"Erro ao remover arquivo temporario {file_path}: {str(e)}")
+                    
+    def _validate_file_path(self, file_path: str) -> bool:
+        if not file_path or not os.path.exists(file_path):
+            logging.error(f"Arquivo não encontrado: {file_path}")    
+            return False
         
-        error_messages = []
-        for xpath in error_xpaths:
+        # Removida verificação duplicada
+        return True
+    
+    def security_check(self) -> bool:
+        try:
+            for pattern in self.config.SECURITY_WARNING_PATTERNS:
+                try:
+                    logging.info("Procurando janela de segurança")
+                    app = Application(backend="win32").connect(
+                        title_re=pattern,
+                        timeout=self.config.SECURITY_CHECK_TIMEOUT
+                    )
+                    dlg = app.window(title_re=pattern)  # Corrigido 'tittle_re'
+                    
+                    if dlg.exists():
+                        logging.info(f"Janela de segurança encontrada: {pattern}")
+                        try:
+                            dlg.type_keys("{TAB}" * 2 + "{ENTER}", pause=0.2)
+                            logging.info("Janela de segurança fechada com sucesso")
+                            return True
+                        except Exception as e:
+                            logging.error(f"Erro ao fechar janela de segurança: {str(e)}")
+                            
+                except ProcessNotFoundError:
+                    logging.debug(f"Janela de segurança não encontrada: {pattern}")
+                    continue
+                except Exception as e:
+                    logging.error(f"Erro ao procurar janela de segurança: {str(e)}")
+                    continue
+            logging.warning("Nenhuma janela de segurança encontrada")
+            return False
+        
+        except Exception as e:
+            logging.error(f"Erro na verificação de segurança: {str(e)}")
+            return False
+        
+    def recognize_3270_terminal(self) -> bool:
+        start_time = time.time()
+        timeout = self.config.TERMINAL_RECOGNITION_TIMEOUT  # Corrigido 'REGONITION'
+        
+        while time.time() - start_time < timeout:
             try:
-                elements = driver.find_elements(By.XPATH, xpath)
-                for element in elements:
-                    if element.is_displayed() and element.text.strip():
-                        error_messages.append(element.text.strip())
-            except:
+                for pattern in self.config.TERMINAL_PATTERNS:
+                    try:
+                        logging.info(f"Procurando terminal 3270")
+                        terminal_app = Application(backend="win32").connect(
+                            title_re=pattern,  # Corrigido 'tittle_pattern'
+                            timeout=5
+                        )
+                        terminal_dlg = terminal_app.window(title_re=pattern)  # Corrigido 'tittle_patten'
+                        
+                        if terminal_dlg.exists():
+                            terminal_dlg.wait('exists', timeout=5)
+                            terminal_dlg.wait('visible', timeout=5)
+                            
+                            logging.info(f"Terminal 3270 reconhecido: {pattern}")
+                            return True
+                    except ProcessNotFoundError:
+                        logging.debug(f"Terminal 3270 não encontrado: {pattern}")
+                        continue
+                    except Exception as e:
+                        logging.error(f"Erro ao reconhecer terminal 3270: {str(e)}")
+                        continue
+            
+                remaining_time = int(timeout - (time.time() - start_time))
+                logging.warning(f"Aguardando terminal... {remaining_time}s restantes")
+                time.sleep(2)
+                
+            except Exception as e:
+                logging.error(f"Erro na verificação do terminal 3270: {str(e)}")
+                time.sleep(2)
+        
+        logging.error("Tempo limite excedido para reconhecimento do terminal 3270")
+        return False
+    
+    def _read_file_content(self, file_path: str) -> Optional[str]:
+        encodings = ['utf-8', 'latin-1', 'cp1252']  # Corrigido 'encondings'
+        
+        for encoding in encodings:  # Corrigido 'enconding'
+            try:
+                with open(file_path, 'r', encoding=encoding) as file:  # Corrigido 'enconding'
+                    content = file.read()
+                    logging.info(f"Conteúdo lido do arquivo {file_path} com codificação {encoding}")
+                    return content
+            except (UnicodeDecodeError, Exception) as e:
+                logging.error(f"Erro ao ler arquivo {file_path} com codificação {encoding}: {str(e)}")
                 continue
         
-        return len(error_messages) > 0, error_messages
-        
-    except Exception as e:
-        logging.debug(f"Erro ao verificar mensagens de erro: {e}")
-        return False, []
+        logging.error(f"Não foi possível ler o arquivo {file_path} com nenhuma das codificações tentadas")
+        return None
     
-def get_credentials(username=None, password=None, retry_attempt=0):
-    try:
-        username = username or saved_user
-        password = password or saved_password
-        if retry_attempt == 0:
-            logging.info("Obtendo credenciais...")
-        else:
-            logging.info(f"Tentativa {retry_attempt + 1} - Digite novas credenciais:")
-
-        if username is None or retry_attempt > 0:
-            username = input("Digite o usuario (CPF): ")
-            saved_user = username
-        
-        if password is None or retry_attempt > 0:
-            password = getpass.getpass("Digite a senha: ")
-            saved_password = password
-
-        return username, password
-    
-    except Exception as e:
-        logging.error(f"Erro ao obter credenciais: {str(e)}")
-        return None, None
-
-def check_3270_connection():
-    try:
-        em = Emulator(visible=True)
-        screen_content = em.string_get(1, 1, 80, 24)
-        non_empty_lines = [line.strip() for line in screen_content.split('\n') if line.strip()]
-        if len(non_empty_lines) <= 3:
-            logging.info("Conexão com o 3270 foi perdida")
-
-            disconnection_indicators = [
-                "MA?",
-                "Desconectado",
-                "659",
-                "/001"
-            ]
-
-            screen_lower = screen_content.lower()
-            disconnected = any(indicator.lower() in screen_lower for indicator in disconnection_indicators)
-
-            if disconnected:
-                logging.info("Conexão com o 3270 foi perdida.")
-                open_3270_file()
-                return True
-            
-        else:
-            connected_indicators = [
-                "MENU DE SISTEMA",
-                "CODIGO",
-                "USUARIO",
-                "PF3",
-                "PF7"
-            ]
-
-            is_connected = any(indicator in screen_content for indicator in connected_indicators)
-
-            if is_connected:
-                logging.info("Conexão com o 3270 está ativa.")
+    def open_3270_emulator(self, file_path: str) -> bool:
+        try:
+            if not self._validate_file_path(file_path):
                 return False
-            else:
-                logging.info("Conexão com o 3270 não está ativa, tentando reconectar.")
-                open_3270_file()
-                return True
+            content = self._read_file_content(file_path)
+            if not content:
+                logging.error(f"Conteúdo do arquivo {file_path} não pôde ser lido")
+                return False
             
-    except Exception as e:
-        logging.error(f"Erro ao verificar conexão com o 3270: {str(e)}")
-        logging.error(f"Assumindo deconexaão com o 3270 - Reabrindo o emulador")
-        open_3270_file()
-        return True
-
-def open_3270_file():
-    global saved_user, saved_password
-    logging.info("Iniciando processo de conexão como terminal 3270")
-    new_file = download_3270_emulator()
-    try:
-        if new_file:
-            if open_3270_emulator(file_path=new_file):
-                if security_check():
-                    logging.info("Conexão com o emulador 3270 estabelecida com sucesso.")
-                    time.sleep(5)
-                    if recognize_3270_emulator():
-                        logging.info("Emulador 3270 reconhecido com sucesso.")
-                        time.sleep(5)
-                        os.remove(new_file)
-                        return True
-                    else:
-                        logging.error("Falha ao reconhecer o emulador 3270.")
-                        os.remove(new_file)
-                        return False
-                else:
-                    logging.error("Falha ao estabelecer conexão com o emulador 3270.")
-                    os.remove(new_file)
+            if "hodcivws" in content:
+                logging.info("Arquivo do terminal 3270 encontrado")
+                
+                try:
+                    file_url = f"file:///{file_path.replace(os.sep, '/')}"  # Corrigido 'raplace'
+                    os.startfile(file_url)
+                    logging.info(f"Emulador 3270 iniciado com o arquivo: {file_path}")
+                    return True
+                except Exception as e:
+                    logging.error(f"Erro ao iniciar o emulador 3270: {str(e)}")
                     return False
             else:
-                logging.error("Falha ao abrir o emulador 3270.")
-                os.remove(new_file)
+                logging.error(f"Arquivo {file_path} não é um arquivo de terminal 3270 válido")
                 return False
-        else:
-            logging.error("Falha no download do emulador 3270.")
-            return False
-    except Exception as e:
-        logging.error(f"Erro ao abrir o emulador 3270: {str(e)}")
-        if new_file and os.path.exists(new_file):
-            os.remove(new_file)
-
-def monitor_3270_connection(check_interval=20):
-    while True:
-        try:
-            is_disconnected = check_3270_connection()
-            if is_disconnected:
-                logging.info("Processos de reconexão conluído.")
-            else:
-                logging.info("Conexão com o 3270 está ativa.")
-
-            time.sleep(check_interval)
         except Exception as e:
-            logging.error(f"Erro durante o monitoramento da conexão 3270: {str(e)}")
-            time.sleep(check_interval)
-        except KeyboardInterrupt:
-            logging.info("Monitoramento interrompido pelo usuário.")
-            break
+            logging.error(f"Erro ao abrir o emulador 3270: {str(e)}")
+            return False
+    
+    def wait_for_download(self) -> Optional[str]:  # Corrigido tipo de retorno
+        start_time = time.time()
+        timeout = self.config.DEFAULT_TIMEOUT
+        
+        if not os.path.exists(self.config.download_dir):
+            logging.error(f"Diretório de download não encontrado: {self.config.download_dir}")
+            return None  # Corrigido retorno
+
+        initial_files = {
+            f for f in os.listdir(self.config.download_dir)
+            if f.endswith(self.config.DOWNLOAD_FILE_EXTENSION)
+        }
+        
+        while time.time() - start_time < timeout:
+            try:
+                current_files = {
+                    f for f in os.listdir(self.config.download_dir)
+                    if f.endswith(self.config.DOWNLOAD_FILE_EXTENSION)
+                }
+                
+                new_files = current_files - initial_files
+                
+                if new_files:
+                    newest_file = max(
+                        [os.path.join(self.config.download_dir, f) for f in new_files],
+                        key=os.path.getmtime
+                    )
+                    
+                    logging.info(f"Arquivo baixado: {newest_file}")
+                    return newest_file
+                
+                time.sleep(2)
+                
+            except Exception as e:
+                logging.error(f"Erro ao verificar downloads: {str(e)}")
+                time.sleep(2)
+        
+        logging.warning("Tempo limite excedido para download de arquivo")
+        return None
+    
+    def _check_login_errors(self) -> Tuple[bool, List[str]]:
+        try:
+            error_xpath = [
+                "//span[@class='mensagem' and contains(text(), 'Senha nao confere')]",
+                "//span[@class='mensagem' and contains(text(), 'Usuário não cadastrado')]",
+                "//span[@class='mensagem']"
+            ]
+            
+            errors_messages = []
+            for xpath in error_xpath:
+                try:
+                    elements = self.driver.find_elements(By.XPATH, xpath)
+                    for element in elements:
+                        if element.is_displayed():
+                            errors_messages.append(element.text)
+                except:
+                    continue
+            return len(errors_messages) > 0, errors_messages
+        
+        except Exception as e:
+            logging.error(f"Erro ao verificar erros de login: {str(e)}")
+            return False, []
+        
+    def download_3270_terminal(self, username: str = None, password: str = None) -> Optional[str]:
+        for retry_attempt in range(self.config.MAX_RETRIES):
+            try:
+                if retry_attempt > 0:
+                    logging.info(f"Tentativa {retry_attempt + 1} de {self.config.MAX_RETRIES}")
+                    self.driver.get(self.config.HOST)
+                    self.wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="login_user"]')))
+                    time.sleep(2)
+                
+                username, password = self.credential_manager.get_credentials(
+                    username, password, retry_attempt
+                )
+                
+                if not username or not password:
+                    logging.error("Credenciais não fornecidas")
+                    continue
+                
+                logging.info(f"Tentativa {retry_attempt + 1} - Efetuando login")
+
+                user_field = self.wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="login_user"]')))
+                user_field.clear()
+                user_field.send_keys(username)
+                
+                password_field = self.wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="login_password"]')))
+                password_field.clear()
+                password_field.send_keys(password)
+
+                login_button = self.driver.find_element(By.XPATH, '//*[@id="login_button"]')
+                login_button.click()
+            
+                time.sleep(2)
+                has_error, error_messages = self._check_login_errors()
+                
+                if has_error:
+                    logging.error(f"Erro de login na tentativa {retry_attempt + 1}:")
+                    for msg in error_messages:
+                        logging.error(f"  - {msg}")
+                    
+                    if retry_attempt < self.config.MAX_RETRIES - 1:
+                        username = None
+                        password = None
+                        continue
+                    else:
+                        logging.error("Máximo de tentativas atingido.")
+                        return None
+                
+                logging.info("Login realizado com sucesso!")
+                
+                downloaded_file = self.wait_for_download()
+                return downloaded_file
+                
+            except TimeoutException as e:
+                logging.error(f"Timeout durante login: {e}")
+                try:
+                    self.driver.get(self.config.HOST)
+                except Exception as reload_error:
+                    logging.error(f"Erro ao recarregar página: {reload_error}")
+                continue
+                
+            except Exception as e:
+                logging.error(f"Erro durante download do emulador: {e}")
+                continue
+        
+        logging.error("Falha em todas as tentativas de download")
+        return None
+    
+    def check_3270_connection(self) -> bool:
+        try:
+            em = Emulator(visible=True)
+            screen_content = em.string_get(1, 1, 80, 24)
+            
+            non_empty_lines = [
+                line.strip() for line in screen_content.split('\n') 
+                if line.strip()
+            ]
+            
+            if len(non_empty_lines) <= 3:
+                screen_lower = screen_content.lower()
+                disconnected = any(
+                    indicator.lower() in screen_lower 
+                    for indicator in self.config.DISCONNECTION_INDICATORS
+                )
+                
+                if disconnected:
+                    logging.info("Conexão 3270 perdida - indicadores de desconexão encontrados")
+                    return True
+            
+            is_connected = any(
+                indicator in screen_content 
+                for indicator in self.config.CONNECTION_INDICATORS
+            )
+            
+            if is_connected:
+                logging.info("Conexão 3270 ativa")
+                return False
+            else:
+                logging.info("Conexão 3270 inativa")
+                return True
+                
+        except Exception as e:
+            logging.error(f"Erro ao verificar conexão 3270: {e}")
+            logging.info("Assumindo desconexão devido ao erro")
+            return True
+    
+    def establish_3270_connection(self) -> bool:
+        logging.info("Iniciando processo de conexão com terminal 3270")
+        
+        downloaded_file = self.download_3270_terminal()
+        if not downloaded_file:
+            logging.error("Falha no download do emulador 3270")
+            return False
+        
+        with self._safe_file_operation(downloaded_file) as file_path:
+            if not self.open_3270_emulator(file_path):
+                logging.error("Falha ao abrir emulador 3270")
+                return False
+            
+            if not self.security_check():
+                logging.error("Falha na verificação de segurança")
+                return False
+            
+            logging.info("Aguardando inicialização do emulador...")
+            time.sleep(5)
+            
+            if not self.recognize_3270_terminal():  # Corrigido nome do método
+                logging.error("Falha ao reconhecer emulador 3270")
+                return False
+            
+            logging.info("Conexão 3270 estabelecida com sucesso")
+            time.sleep(3)
+            return True
+    
+    def monitor_3270_connection(self):
+        logging.info("Iniciando monitoramento da conexão 3270")
+        
+        while True:
+            try:
+                needs_reconnection = self.check_3270_connection()
+                
+                if needs_reconnection:
+                    logging.info("Tentando reconectar...")
+                    if self.establish_3270_connection():
+                        logging.info("Reconexão bem-sucedida")
+                    else:
+                        logging.error("Falha na reconexão")
+                
+                time.sleep(self.config.CONNECTION_CHECK_INTERVAL)
+                
+            except KeyboardInterrupt:
+                logging.info("Monitoramento interrompido pelo usuário")
+                break
+            except Exception as e:
+                logging.error(f"Erro durante monitoramento: {e}")
+                time.sleep(self.config.CONNECTION_CHECK_INTERVAL)
+    
+    def run(self):
+        try:
+            logging.info("Iniciando automação do mainframe")
+            
+            self.driver.get(self.config.HOST)
+            time.sleep(3)
+            
+            if self.establish_3270_connection():
+                self.monitor_3270_connection()
+            else:
+                logging.error("Falha ao estabelecer conexão inicial")
+                
+        except Exception as e:
+            logging.error(f"Erro durante execução: {e}")
+        finally:
+            self.cleanup()
+    
+    def cleanup(self):
+        try:
+            if self.driver:
+                self.driver.quit()
+                logging.info("WebDriver encerrado")
+        except Exception as e:
+            logging.error(f"Erro durante limpeza: {e}")
 
 def main():
-    global saved_user, saved_password
-
-    driver.get(host)
-    time.sleep(3)
-
-    new_file = download_3270_emulator()
-    if new_file:
-        if open_3270_emulator(file_path=new_file):
-            if security_check():
-                logging.info("Conexão com o emulador 3270 estabelecida com sucesso.")
-                time.sleep(5)
-                if recognize_3270_emulator():
-                    logging.info("Emulador 3270 reconhecido com sucesso.")
-                    time.sleep(5)
-                    os.remove(new_file)
-                    monitor_3270_connection()
-                else:
-                    logging.error("Falha ao reconhecer o emulador 3270.")
-                    os.remove(new_file)
-            else:
-                logging.error("Falha ao estabelecer conexão com o emulador 3270.")
-                os.remove(new_file)
-        else:
-            logging.error("Falha ao abrir o emulador 3270.")
-            os.remove(new_file)
+    automation = Mainframe3270Automation()
+    automation.run()
 
 if __name__ == "__main__":
     main()
