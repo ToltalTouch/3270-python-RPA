@@ -1,5 +1,5 @@
 import os
-from datacalasses import dataclass
+from dataclasses import dataclass  # Corrigido 'datacalasses'
 from typing import List
 
 @dataclass
@@ -9,17 +9,17 @@ class AppConfig:
     DEFAULT_TIMEOUT: int = 60
     ELEMENT_WAIT_TIMEOUT: int = 260
     SECURITY_CHECK_TIMEOUT: int = 15
-    TERMINAL_REGONITION_TIMEOUT: int = 40
+    TERMINAL_RECOGNITION_TIMEOUT: int = 40  # Corrigido 'REGONITION'
     CONNECTION_CHECK_INTERVAL: int = 20
 
-    MAX_RETRIE: int = 3
+    MAX_RETRIES: int = 3  # Corrigido 'MAX_RETRIE'
 
     DOWNLOAD_FILE_EXTENSION: str = '.jsp'
 
     SECURITY_WARNING_PATTERNS: List[str] = None
     TERMINAL_PATTERNS: List[str] = None
-    DISCONNECTION_INDICATOR: List[str] = None
-    CONNECTION_INDICATOR: List[str] = None
+    DISCONNECTION_INDICATORS: List[str] = None  # Corrigido 'INDICATOR' para plural
+    CONNECTION_INDICATORS: List[str] = None  # Corrigido 'INDICATOR' para plural
 
     def __post_init__(self):
         if self.SECURITY_WARNING_PATTERNS is None:
@@ -28,14 +28,14 @@ class AppConfig:
         if self.TERMINAL_PATTERNS is None:
             self.TERMINAL_PATTERNS = [".*Terminal 3270.*"]
 
-        if self.DISCONNECTION_INDICATOR is None:
-            self.DISCONNECTION_INDICATOR = ["MA?",
+        if self.DISCONNECTION_INDICATORS is None:  # Corrigido para plural
+            self.DISCONNECTION_INDICATORS = ["MA?",
                                             "Desconectado",
                                             "659",
                                             "/001"]
         
-        if self.CONNECTION_INDICATOR is None:
-            self.CONNECTION_INDICATOR = ["MENU DE SISTEMA",
+        if self.CONNECTION_INDICATORS is None:  # Corrigido para plural
+            self.CONNECTION_INDICATORS = ["MENU DE SISTEMA",
                                          "CODIGO",
                                          "USUARIO",
                                          "PF3",
