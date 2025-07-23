@@ -9,11 +9,13 @@ from contextlib import contextmanager
 
 from config import AppConfig
 from credential_manager import CredentialManager
+from download_terminal import DownloadTerminal
 
 class Mainframe3270Automation:
     def __init__(self, config: AppConfig = None):
         self.config = config or AppConfig()
         self.credential_manager = CredentialManager()
+        self.download = DownloadTerminal()
         self.driver = None
         self.wait = None
         
@@ -230,7 +232,7 @@ class Mainframe3270Automation:
     def establish_3270_connection(self) -> bool:
         logging.info("Iniciando processo de conexão com terminal 3270")
         
-        downloaded_file = self.download_3270_terminal()
+        downloaded_file = self.download.download_3270_terminal()
         if not downloaded_file:
             logging.error("Falha no download do emulador 3270")
             return False
