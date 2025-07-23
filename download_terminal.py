@@ -21,8 +21,8 @@ class DownloadTerminal:
         self.driver = None
         self.wait = None
         
-        self.setup_logging()
         self.setup_webdriver()
+        self.setup_logging()
         
     def setup_logging(self):
         logging.basicConfig(
@@ -36,7 +36,7 @@ class DownloadTerminal:
         console_handler.setLevel(logging.INFO)
         formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
         console_handler.setFormatter(formatter)
-        logging.getLogger().addHandler(console_handler)
+        self.logging = logging.getLogger().addHandler(console_handler)
         
     def setup_webdriver(self):
         try:
@@ -51,6 +51,8 @@ class DownloadTerminal:
             
             self.driver = webdriver.Edge(service=service, options=options)
             self.wait = WebDriverWait(self.driver, self.config.ELEMENT_WAIT_TIMEOUT)
+            
+            return self.driver
             
         except Exception as e:
             logging.error(f"Erro ao configurar o WebDriver: {str(e)}")
@@ -120,10 +122,10 @@ class DownloadTerminal:
                 
                 logging.info(f"Tentativa {retry_attempt + 1} de login.")
                 
-                self.wait.until(EC.presence_of_element_located((By.ID, "login_user"))).send_keys(username)
-                self.wait.until(EC.presence_of_element_located((By.ID, "login_password"))).send_keys(password)
+                self.wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="login_user"]'))).send_keys(username)
+                self.wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="login_password"]'))).send_keys(password)
                 
-                self.driver.find_element(By.XPATH, 'login_button').click()
+                self.driver.find_element(By.XPATH, '//*[@id="login_button"]').click()
                 
                 time.sleep(1)
                 
