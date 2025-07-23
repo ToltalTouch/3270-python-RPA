@@ -252,6 +252,7 @@ class Mainframe3270Automation:
                     logging.error("Credenciais não fornecidas")
                     continue
                 
+                
                 logging.info(f"Tentativa {retry_attempt + 1} - Efetuando login")
 
                 self.wait.until(EC.presence_of_element_located((By.XPATH, '//*[@id="login_user"]'))).send_keys(username)
