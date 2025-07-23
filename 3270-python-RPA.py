@@ -1,12 +1,5 @@
 from pywinauto.application import Application
 from pywinauto.application import ProcessNotFoundError
-from selenium import webdriver
-from selenium.webdriver.edge.service import Service
-from selenium.webdriver.edge.options import Options
-from selenium.webdriver.common.by import By
-from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from py3270 import Emulator
 import os
 import logging
@@ -25,7 +18,6 @@ class Mainframe3270Automation:
         self.wait = None
         
         self.setup_logging()
-        self.setup_webdriver()
         
     def setup_logging(self):
         logging.basicConfig(
@@ -40,24 +32,6 @@ class Mainframe3270Automation:
         formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
         console_handler.setFormatter(formatter)
         logging.getLogger().addHandler(console_handler)
-        
-    def setup_webdriver(self):
-        try:
-            if not os.path.exists(self.config.edge_path):
-                raise FileNotFoundError(f"Edge driver not found at {self.config.edge_path}")
-            
-            service = Service(executable_path=self.config.edge_path)
-            options = Options()
-            options.add_argument("--maximized") #headless #maximized
-            options.add_argument("--no-sandbox")
-            options.add_argument("--disable-dev-shm-usage")
-            
-            self.driver = webdriver.Edge(service=service, options=options)
-            self.wait = WebDriverWait(self.driver, self.config.ELEMENT_WAIT_TIMEOUT)
-            
-        except Exception as e:
-            logging.error(f"Failed to set up WebDriver: {str(e)}")
-            raise
     
     @contextmanager
     def _safe_file_operation(self, file_path: str):
@@ -76,7 +50,6 @@ class Mainframe3270Automation:
             logging.error(f"Arquivo não encontrado: {file_path}")    
             return False
         
-        # Removida verificação duplicada
         return True
     
     def security_check(self) -> bool:
