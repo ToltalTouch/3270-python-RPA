@@ -1,6 +1,7 @@
 import os
 from dataclasses import dataclass
 from typing import List
+import logging
 
 @dataclass
 class AppConfig:
@@ -57,4 +58,5 @@ class AppConfig:
     
     @property
     def log_file(self) -> str:
-        return 'mainframe_automation.log'
+        current_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)))
+        return os.path.join(current_dir, 'mainframe_automation.log')
