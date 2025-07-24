@@ -4,7 +4,7 @@ from py3270 import Emulator
 import os
 import logging
 import time
-from typing import Optional, Tuple, List
+from typing import Optional
 from contextlib import contextmanager
 
 from config import AppConfig
@@ -22,18 +22,21 @@ class Mainframe3270Automation:
         self.setup_logging()
         
     def setup_logging(self):
+        logger = logging.getLogger()
+        
+        if not any(isinstance(h, logging.FileHandler) for h in logger.handlers):
+            console_handler = logging.StreamHandler()
+            console_handler.setLevel(logging.INFO)
+            formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+            console_handler.setFormatter(formatter)
+            logging.getLogger().addHandler(console_handler)
+        
         logging.basicConfig(
             level=logging.INFO,
             format='%(asctime)s - %(levelname)s - %(message)s',
             filename=self.config.log_file,
             filemode='a'
         )
-        
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-        console_handler.setFormatter(formatter)
-        logging.getLogger().addHandler(console_handler)
     
     @contextmanager
     def _safe_file_operation(self, file_path: str):
@@ -283,7 +286,8 @@ class Mainframe3270Automation:
     def run(self):
         try:
             logging.info("Iniciando automação do mainframe")
-            
+
+            self.driver = self.download.setup_webdriver()
             self.driver.get(self.config.HOST)
             time.sleep(3)
             

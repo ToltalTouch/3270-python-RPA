@@ -1,0 +1,80 @@
+2025-07-23 12:37:48,080 - INFO - Iniciando automação do mainframe
+2025-07-23 12:37:52,949 - INFO - Iniciando processo de conexão com terminal 3270
+2025-07-23 12:37:53,030 - INFO - Obtendo credenciais do usuário.
+2025-07-23 12:38:04,159 - INFO - Tentativa 1 de login.
+2025-07-23 12:38:05,314 - INFO - Novo arquivo deectado: C:\Users\micael.amaral\Downloads\hodcivws.jsp
+2025-07-23 12:38:05,314 - INFO - Conteúdo lido do arquivo C:\Users\micael.amaral\Downloads\hodcivws.jsp com codificação utf-8
+2025-07-23 12:38:05,315 - INFO - Emulador 3270 encontrado no arquivo.
+2025-07-23 12:38:05,570 - INFO - Procurando janela de segurança
+2025-07-23 12:38:07,723 - INFO - Janela de segurança encontrada: .*Advertência de Segurança.*
+2025-07-23 12:38:08,027 - INFO - Janela de segurança fechada com sucesso
+2025-07-23 12:38:08,028 - INFO - Aguardando inicialização do emulador...
+2025-07-23 12:38:13,028 - INFO - Procurando terminal 3270
+2025-07-23 12:38:14,382 - INFO - Terminal 3270 reconhecido: .*Terminal 3270.*
+2025-07-23 12:38:14,382 - INFO - Conexão 3270 estabelecida com sucesso
+2025-07-23 12:38:17,384 - INFO - Arquivo temporario removido: C:\Users\micael.amaral\Downloads\hodcivws.jsp
+2025-07-23 12:38:17,384 - INFO - Iniciando monitoramento da conexão 3270
+2025-07-23 12:38:17,385 - INFO - Tentando conectar ao emulador 3270
+2025-07-23 12:38:17,389 - INFO - Tentando reconectar...
+2025-07-23 12:38:17,389 - INFO - Iniciando processo de conexão com terminal 3270
+2025-07-23 12:38:17,465 - INFO - Obtendo credenciais do usuário.
+2025-07-23 12:38:17,465 - INFO - Tentativa 1 de login.
+2025-07-23 12:38:18,590 - INFO - Novo arquivo deectado: C:\Users\micael.amaral\Downloads\hodcivws.jsp
+2025-07-23 12:38:18,591 - INFO - Conteúdo lido do arquivo C:\Users\micael.amaral\Downloads\hodcivws.jsp com codificação utf-8
+2025-07-23 12:38:18,591 - INFO - Emulador 3270 encontrado no arquivo.
+2025-07-23 12:38:18,646 - INFO - Procurando janela de segurança
+2025-07-23 12:38:20,343 - INFO - Janela de segurança encontrada: .*Advertência de Segurança.*
+2025-07-23 12:38:20,650 - INFO - Janela de segurança fechada com sucesso
+2025-07-23 12:38:20,650 - INFO - Aguardando inicialização do emulador...
+2025-07-23 12:38:25,651 - INFO - Procurando terminal 3270
+2025-07-23 12:38:25,681 - INFO - Terminal 3270 reconhecido: .*Terminal 3270.*
+2025-07-23 12:38:25,681 - INFO - Conexão 3270 estabelecida com sucesso
+2025-07-23 12:38:28,683 - INFO - Arquivo temporario removido: C:\Users\micael.amaral\Downloads\hodcivws.jsp
+2025-07-23 12:38:28,683 - INFO - Reconexão bem-sucedida
+2025-07-23 12:38:48,684 - INFO - Tentando conectar ao emulador 3270
+2025-07-23 12:38:48,688 - INFO - Tentando reconectar...
+2025-07-23 12:38:48,688 - INFO - Iniciando processo de conexão com terminal 3270
+2025-07-23 12:38:48,804 - INFO - Obtendo credenciais do usuário.
+2025-07-23 12:38:48,804 - INFO - Tentativa 1 de login.
+2025-07-23 12:38:49,959 - INFO - Novo arquivo deectado: C:\Users\micael.amaral\Downloads\hodcivws.jsp
+2025-07-23 12:38:49,960 - INFO - Conteúdo lido do arquivo C:\Users\micael.amaral\Downloads\hodcivws.jsp com codificação utf-8
+2025-07-23 12:38:49,960 - INFO - Emulador 3270 encontrado no arquivo.
+2025-07-23 12:38:50,032 - INFO - Procurando janela de segurança
+2025-07-23 12:38:51,978 - INFO - Janela de segurança encontrada: .*Advertência de Segurança.*
+2025-07-23 12:38:52,312 - INFO - Janela de segurança fechada com sucesso
+2025-07-23 12:38:52,312 - INFO - Aguardando inicialização do emulador...
+2025-07-23 12:38:57,313 - INFO - Procurando terminal 3270
+2025-07-23 12:38:59,283 - INFO - Terminal 3270 reconhecido: .*Terminal 3270.*
+2025-07-23 12:38:59,284 - INFO - Conexão 3270 estabelecida com sucesso
+2025-07-23 12:39:02,285 - INFO - Arquivo temporario removido: C:\Users\micael.amaral\Downloads\hodcivws.jsp
+2025-07-23 12:39:02,286 - INFO - Reconexão bem-sucedida
+2025-07-23 12:39:22,286 - INFO - Tentando conectar ao emulador 3270
+2025-07-23 12:39:22,291 - INFO - Tentando reconectar...
+2025-07-23 12:39:22,292 - INFO - Iniciando processo de conexão com terminal 3270
+2025-07-23 12:39:22,397 - INFO - Obtendo credenciais do usuário.
+2025-07-23 12:39:22,398 - INFO - Tentativa 1 de login.
+2025-07-23 12:39:23,518 - INFO - Novo arquivo deectado: C:\Users\micael.amaral\Downloads\hodcivws.jsp
+2025-07-23 12:39:23,519 - INFO - Conteúdo lido do arquivo C:\Users\micael.amaral\Downloads\hodcivws.jsp com codificação utf-8
+2025-07-23 12:39:23,519 - INFO - Emulador 3270 encontrado no arquivo.
+2025-07-23 12:39:23,583 - INFO - Procurando janela de segurança
+2025-07-23 12:39:25,283 - INFO - Janela de segurança encontrada: .*Advertência de Segurança.*
+2025-07-23 12:39:25,615 - INFO - Janela de segurança fechada com sucesso
+2025-07-23 12:39:25,616 - INFO - Aguardando inicialização do emulador...
+2025-07-23 12:39:30,616 - INFO - Procurando terminal 3270
+2025-07-23 12:39:30,666 - INFO - Terminal 3270 reconhecido: .*Terminal 3270.*
+2025-07-23 12:39:30,667 - INFO - Conexão 3270 estabelecida com sucesso
+2025-07-23 12:39:33,669 - INFO - Arquivo temporario removido: C:\Users\micael.amaral\Downloads\hodcivws.jsp
+2025-07-23 12:39:33,669 - INFO - Reconexão bem-sucedida
+2025-07-23 12:39:53,670 - INFO - Tentando conectar ao emulador 3270
+2025-07-23 12:39:53,674 - INFO - Tentando reconectar...
+2025-07-23 12:39:53,675 - INFO - Iniciando processo de conexão com terminal 3270
+2025-07-23 12:39:53,814 - INFO - Obtendo credenciais do usuário.
+2025-07-23 12:39:53,814 - INFO - Tentativa 1 de login.
+2025-07-23 12:39:54,941 - INFO - Novo arquivo deectado: C:\Users\micael.amaral\Downloads\hodcivws.jsp
+2025-07-23 12:39:54,942 - INFO - Conteúdo lido do arquivo C:\Users\micael.amaral\Downloads\hodcivws.jsp com codificação utf-8
+2025-07-23 12:39:54,942 - INFO - Emulador 3270 encontrado no arquivo.
+2025-07-23 12:39:54,998 - INFO - Procurando janela de segurança
+2025-07-23 12:39:56,924 - INFO - Janela de segurança encontrada: .*Advertência de Segurança.*
+2025-07-23 12:39:57,404 - INFO - Janela de segurança fechada com sucesso
+2025-07-23 12:39:57,404 - INFO - Aguardando inicialização do emulador...
+2025-07-23 12:40:02,405 - INFO - Procurando terminal 3270
