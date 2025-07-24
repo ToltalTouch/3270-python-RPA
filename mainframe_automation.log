@@ -78,3 +78,96 @@
 2025-07-23 12:39:57,404 - INFO - Janela de segurança fechada com sucesso
 2025-07-23 12:39:57,404 - INFO - Aguardando inicialização do emulador...
 2025-07-23 12:40:02,405 - INFO - Procurando terminal 3270
+2025-07-23 14:43:48,429 - INFO - Iniciando automação do mainframe
+2025-07-23 14:43:53,035 - INFO - Iniciando processo de conexão com terminal 3270
+2025-07-23 14:43:53,111 - INFO - Obtendo credenciais do usuário.
+2025-07-23 14:44:37,189 - INFO - Iniciando automação do mainframe
+2025-07-23 14:44:41,886 - INFO - Iniciando processo de conexão com terminal 3270
+2025-07-23 14:44:41,967 - INFO - Obtendo credenciais do usuário.
+2025-07-23 15:08:13,010 - INFO - Iniciando automação do mainframe
+2025-07-23 15:08:17,864 - INFO - Iniciando processo de conexão com terminal 3270
+2025-07-23 15:08:17,942 - INFO - Obtendo credenciais do usuário.
+2025-07-23 15:10:43,348 - INFO - Iniciando automação do mainframe
+2025-07-23 15:10:48,308 - INFO - Iniciando processo de conexão com terminal 3270
+2025-07-23 15:10:48,386 - INFO - Obtendo credenciais do usuário.
+2025-07-23 15:10:57,085 - INFO - Tentativa 1 de login.
+2025-07-23 15:10:58,252 - INFO - Novo arquivo deectado: C:\Users\micael.amaral\Downloads\hodcivws.jsp
+2025-07-23 15:10:58,253 - INFO - Conteúdo lido do arquivo C:\Users\micael.amaral\Downloads\hodcivws.jsp com codificação utf-8
+2025-07-23 15:10:58,253 - INFO - Emulador 3270 encontrado no arquivo.
+2025-07-23 15:10:58,496 - INFO - Procurando janela de segurança
+2025-07-23 15:11:00,185 - INFO - Janela de segurança encontrada: .*Advertência de Segurança.*
+2025-07-23 15:11:00,492 - INFO - Janela de segurança fechada com sucesso
+2025-07-23 15:11:00,492 - INFO - Aguardando inicialização do emulador...
+2025-07-23 15:11:05,493 - INFO - Procurando terminal 3270
+2025-07-23 15:11:07,553 - INFO - Terminal 3270 reconhecido: .*Terminal 3270.*
+2025-07-23 15:11:07,553 - INFO - Conexão 3270 estabelecida com sucesso
+2025-07-23 15:11:10,555 - INFO - Arquivo temporario removido: C:\Users\micael.amaral\Downloads\hodcivws.jsp
+2025-07-23 15:11:10,556 - INFO - Iniciando monitoramento da conexão 3270
+2025-07-23 15:11:10,556 - INFO - Tentando conectar ao emulador 3270
+2025-07-23 15:11:10,561 - INFO - Tentando reconectar...
+2025-07-23 15:11:10,561 - INFO - Iniciando processo de conexão com terminal 3270
+2025-07-23 15:11:10,641 - INFO - Obtendo credenciais do usuário.
+2025-07-23 15:11:10,642 - INFO - Tentativa 1 de login.
+2025-07-23 15:11:11,774 - INFO - Novo arquivo deectado: C:\Users\micael.amaral\Downloads\hodcivws.jsp
+2025-07-23 15:11:11,774 - INFO - Conteúdo lido do arquivo C:\Users\micael.amaral\Downloads\hodcivws.jsp com codificação utf-8
+2025-07-23 15:11:11,774 - INFO - Emulador 3270 encontrado no arquivo.
+2025-07-23 15:11:11,829 - INFO - Procurando janela de segurança
+2025-07-23 15:11:13,529 - INFO - Janela de segurança encontrada: .*Advertência de Segurança.*
+2025-07-23 15:11:14,009 - INFO - Janela de segurança fechada com sucesso
+2025-07-23 15:11:14,009 - INFO - Aguardando inicialização do emulador...
+2025-07-23 15:11:19,010 - INFO - Procurando terminal 3270
+2025-07-23 15:11:19,216 - INFO - Terminal 3270 reconhecido: .*Terminal 3270.*
+2025-07-23 15:11:19,216 - INFO - Conexão 3270 estabelecida com sucesso
+2025-07-23 15:11:22,218 - INFO - Arquivo temporario removido: C:\Users\micael.amaral\Downloads\hodcivws.jsp
+2025-07-23 15:11:22,218 - INFO - Reconexão bem-sucedida
+
+2025-07-23 15:11:10,556 - INFO - Tentando conectar ao emulador 3270
+Exception ignored in: <function Emulator.__del__ at 0x0000020A2B055620>
+Traceback (most recent call last):
+  File "C:\Users\micael.amaral\AppData\Local\Programs\Python\Python313\Lib\site-packages\py3270\__init__.py", line 285, in __del__
+    self.terminate()
+  File "C:\Users\micael.amaral\AppData\Local\Programs\Python\Python313\Lib\site-packages\py3270\__init__.py", line 323, in terminate
+    self.exec_command(b"Quit")
+  File "C:\Users\micael.amaral\AppData\Local\Programs\Python\Python313\Lib\site-packages\py3270\__init__.py", line 308, in exec_command
+    c.execute()
+  File "C:\Users\micael.amaral\AppData\Local\Programs\Python\Python313\Lib\site-packages\py3270\__init__.py", line 68, in execute
+    self.app.write(self.cmdstr + b"\n")
+  File "C:\Users\micael.amaral\AppData\Local\Programs\Python\Python313\Lib\site-packages\py3270\__init__.py", line 237, in write
+    raise NotConnectedException
+py3270.NotConnectedException:
+2025-07-23 17:00:03,511 - INFO - Iniciando automação do mainframe
+2025-07-23 17:00:08,151 - INFO - Iniciando processo de conexão com terminal 3270
+2025-07-23 17:00:08,238 - INFO - Obtendo credenciais do usuário.
+2025-07-23 17:00:24,924 - INFO - Tentativa 1 de login.
+2025-07-23 17:00:26,103 - ERROR - Erro de login Tentativa 1
+2025-07-23 17:00:26,103 - ERROR - Mensagem de erro: Senha nao confere
+2025-07-23 17:00:26,103 - ERROR - Mensagem de erro: Senha nao confere
+2025-07-23 17:00:26,103 - ERROR - Máximo de tentativas atingido.
+2025-07-23 17:00:26,104 - ERROR - Falha no download do emulador 3270
+2025-07-23 17:00:26,104 - ERROR - Falha ao estabelecer conexão inicial
+2025-07-23 17:00:28,317 - INFO - WebDriver encerrado
+2025-07-23 17:00:32,318 - INFO - Iniciando automação do mainframe
+2025-07-23 17:00:36,965 - INFO - Iniciando processo de conexão com terminal 3270
+2025-07-23 17:00:37,040 - INFO - Obtendo credenciais do usuário.
+2025-07-23 17:00:44,564 - INFO - Tentativa 1 de login.
+2025-07-23 17:00:45,717 - INFO - Novo arquivo deectado: C:\Users\micael.amaral\Downloads\hodcivws (1).jsp
+2025-07-23 17:00:45,718 - INFO - Conteúdo lido do arquivo C:\Users\micael.amaral\Downloads\hodcivws (1).jsp com codificação utf-8
+2025-07-23 17:00:45,719 - INFO - Emulador 3270 encontrado no arquivo.
+2025-07-23 17:00:45,961 - INFO - Procurando janela de segurança
+2025-07-23 17:00:47,706 - INFO - Janela de segurança encontrada: .*Advertência de Segurança.*
+2025-07-23 17:00:48,013 - INFO - Janela de segurança fechada com sucesso
+2025-07-23 17:00:48,013 - INFO - Aguardando inicialização do emulador...
+2025-07-23 17:00:53,014 - INFO - Procurando terminal 3270
+2025-07-23 17:00:54,728 - INFO - Terminal 3270 reconhecido: .*Terminal 3270.*
+2025-07-23 17:00:54,729 - INFO - Conexão 3270 estabelecida com sucesso
+2025-07-23 17:00:57,731 - INFO - Arquivo temporario removido: C:\Users\micael.amaral\Downloads\hodcivws (1).jsp
+2025-07-23 17:00:57,731 - INFO - Iniciando monitoramento da conexão 3270
+2025-07-23 17:00:57,731 - ERROR - Erro durante monitoramento: 'Mainframe3270Automation' object has no attribute 'check_3270_connection'
+2025-07-23 17:01:17,732 - ERROR - Erro durante monitoramento: 'Mainframe3270Automation' object has no attribute 'check_3270_connection'
+2025-07-23 17:01:37,733 - ERROR - Erro durante monitoramento: 'Mainframe3270Automation' object has no attribute 'check_3270_connection'
+2025-07-23 17:01:57,735 - ERROR - Erro durante monitoramento: 'Mainframe3270Automation' object has no attribute 'check_3270_connection'
+2025-07-23 17:02:17,735 - ERROR - Erro durante monitoramento: 'Mainframe3270Automation' object has no attribute 'check_3270_connection'
+2025-07-23 17:02:37,737 - ERROR - Erro durante monitoramento: 'Mainframe3270Automation' object has no attribute 'check_3270_connection'
+2025-07-23 17:02:57,738 - ERROR - Erro durante monitoramento: 'Mainframe3270Automation' object has no attribute 'check_3270_connection'
+2025-07-23 17:03:17,739 - ERROR - Erro durante monitoramento: 'Mainframe3270Automation' object has no attribute 'check_3270_connection'
+2025-07-23 17:03:37,740 - ERROR - Erro durante monitoramento: 'Mainframe3270Automation' object has no attribute 'check_3270_connection'

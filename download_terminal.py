@@ -21,7 +21,6 @@ class DownloadTerminal:
         self.driver = None
         self.wait = None
         
-        self.setup_webdriver()
         self.setup_logging()
         
     def setup_logging(self):
@@ -45,7 +44,7 @@ class DownloadTerminal:
             
             service = Service(self.config.edge_path)
             options = Options()
-            options.add_argument("--headless")
+            options.add_argument("--headless")#maximized
             options.add_argument("--no-sandbox")
             options.add_argument("--disable-dev-shm-usage")
             
@@ -154,3 +153,13 @@ class DownloadTerminal:
         logging.error("Falha em todas as tentativas de download do terminal 3270.")
         return None
                 
+    def _driverquit(self):
+        if self.driver:
+            try:
+                self.driver.quit()
+                logging.info("WebDriver encerrado com sucesso.")
+            except Exception as e:
+                logging.error(f"Erro ao encerrar o WebDriver: {str(e)}")
+        else:
+            logging.warning("WebDriver já está encerrado ou não foi inicializado.")
+        return self._driverquit()
