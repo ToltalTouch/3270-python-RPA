@@ -78,28 +78,6 @@ class DownloadTerminal:
             
         logging.info(f"Timeout de {timeout} segundos atingido sem novos downloads.")
         return None
-    
-    def _check_login_erros(self) -> Tuple[bool, List[str]]:
-        try:
-            erros_xpath = [
-                    "//span[@class='mensagem' and contains(text(), 'Senha nao confere')]",
-                    "//span[@class='mensagem' and contains(text(), 'Usuário não cadastrado')]",
-                    "//span[@class='mensagem']"
-            ]
-            
-            errors_message = []
-            for xpath in erros_xpath:
-                try:
-                    elements = self.driver.find_elements(By.XPATH, xpath)
-                    for element in elements:
-                        if element.is_displayed():
-                            errors_message.append(element.text)
-                except:
-                    continue
-            return len(errors_message) > 0, errors_message
-        except Exception as e:
-            logging.error(f"Erro ao verificar erros de login: {str(e)}")
-            return False, []
         
     def download_3270_terminal(self, username: str = None, password: str = None) -> Optional[str]:
         self.driver.get(self.config.HOST)
@@ -153,6 +131,29 @@ class DownloadTerminal:
         logging.error("Falha em todas as tentativas de download do terminal 3270.")
         return None
                 
+    def _check_login_erros(self) -> Tuple[bool, List[str]]:
+        try:
+            erros_xpath = [
+                    "//span[@class='mensagem' and contains(text(), 'Senha nao confere')]",
+                    "//span[@class='mensagem' and contains(text(), 'Usuário não cadastrado')]",
+                    "//span[@class='mensagem']"
+            ]
+            
+            errors_message = []
+            for xpath in erros_xpath:
+                try:
+                    elements = self.driver.find_elements(By.XPATH, xpath)
+                    for element in elements:
+                        if element.is_displayed():
+                            errors_message.append(element.text)
+                            
+                except:
+                    continue
+            return len(errors_message) > 0, errors_message
+        except Exception as e:
+            logging.error(f"Erro ao verificar erros de login: {str(e)}")
+            return False, []
+    
     def _driverquit(self):
         if self.driver:
             try:
