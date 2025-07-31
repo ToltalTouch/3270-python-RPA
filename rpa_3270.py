@@ -1,11 +1,12 @@
 import os
 import logging
-
-from class_3270 import RPA3270 
+import class_3270
+from class_3270 import RPA3270
 from config import AppConfig
 
 class Mainframe3270Automation:
     def __init__(self, config: AppConfig = None):
+        
         self.config = config or AppConfig()
         self.rpa3270 = RPA3270(self.config.TERMINAL_PATTERNS)
         
@@ -30,6 +31,20 @@ class Mainframe3270Automation:
         )
         
     def run(self):
+        acesso = class_3270.RPA3270
+        saida = open(os.path.join(os.path.dirname(os.path.abspath(__file__), "restricoes.txt")), 'w', encoding='utf-8')
         try:
             cabecalho = '"Restricao' + '"'+'\t'+'"' + 'Titulo' + '"'+'\t'+'"' + 'Grupo' + '"'+'\t'+'"' + 'Descricao"' + '\n'
             saida.write(cabecalho)
+            saida.close()
+            
+            continua = 'CONTINUA'
+            
+            while continua == 'CONTINUA':
+                i = 0
+                for L in range(6, 22):
+                    acesso.tab(i)
+                    
+        except Exception as e:
+            logging.error(f"Erro durante a execução: {str(e)}")
+                
