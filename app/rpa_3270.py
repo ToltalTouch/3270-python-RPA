@@ -1,3 +1,4 @@
+import re
 import time
 import logging
 import pyautogui
@@ -41,6 +42,18 @@ class Mainframe3270Automation:
             
         logging.warning("Timeout atingido. A janela ainda está presente.")
         return False
+    
+    def esperar_janela_aparecer(self, termos_busca: list, timeout: int = 60, intervalo: int = 2):
+        logging.info("Esperando a janela aparecer...")
+        tempo_inicial = time.time()
+        while time.time() - tempo_inicial < timeout:
+            janela = self.encontrar_janela(termos_busca)
+            if janela:
+                logging.info(f"Janela encontrada")
+                return janela
+            time.sleep(intervalo)
+        logging.warning("Timeout atingido. A janela não apareceu.")
+        return None
 
     def _inserir_token_no_terminal(self, token_message):
         try:
@@ -59,8 +72,6 @@ class Mainframe3270Automation:
             if numbers_only:
                 token_to_insert = numbers_only[0]
                 logging.info(f"Inserindo token no terminal: {token_to_insert}")
-                pyautogui.press('f5')
-                time.sleep(0.5)
                 pyautogui.write(token_to_insert)
                 pyautogui.press('enter')
                 logging.info("Token inserido com sucesso no terminal")
@@ -69,8 +80,20 @@ class Mainframe3270Automation:
         except Exception as e:
             logging.error(f"Erro ao inserir token no terminal: {e}")
 
-        
-    def reconhecer_janela(self, duracao_total=300, intervalo=15):
+    def extrair_titulo_janela(self, janela) -> str:
+        try:
+            titulo_janela_terminal = janela.title
+            match = re.search(r'AWV[A-Z0-9]+', titulo_janela_terminal)
+            if match:
+                codigo_awv = match.group()
+                codigo_awp = codigo_awv.replace('AWV', 'AWP')
+                return codigo_awp
+            else:
+                logging.warning("Código AWV não encontrado no título da janela do terminal.")
+        except Exception as e:
+            logging.error(f"Erro ao extrair título da janela: {e}")
+
+    def reconhecer_janela(self, duracao_total=600, intervalo=25):
         pyautogui.FAILSAFE = False
         logging.info("Iniciando mecanismo anti-timeout com teclas de função.")
         tempo_limite = duracao_total
@@ -85,17 +108,31 @@ class Mainframe3270Automation:
         logging.info("A janela de inicialização foi fechada. Continuando o processo.")
 
         # verifica se há janela de erro
-        janela_erro = self.encontrar_janela(["ERRO", "APLICATIVO", "ERRO DE APLICATIVO"])
-        if janela_erro:
-            logging.error("Janela de erro detectada. Encerrando o processo.")
+        janela_erro = self.esperar_janela_desaparecer(["ERRO", "APLICATIVO", "ERRO DE APLICATIVO"])
+        if not janela_erro:
+            logging.error("Janela de erro detectada. Abortando.")
             return False
-
+        
+        janela_painel = self.esperar_janela_aparecer(["PAINEL DE CONTROLE", "PAINEL", "CONTROLE"])
+        if janela_painel:
+            logging.info("Janela do painel de controle detectada. Selecionando impressora.")
+            janela_painel.activate()
+            pyautogui.press('tab', presses=3, interval=0.3)
+            pyautogui.write('IMPRESSORA 3270')
+            pyautogui.press('enter')
+        
         # localizar o terminal
-        janela_terminal = self.encontrar_janela(["TERMINAL 3270", "3270 TERMINAL", "IBM 3270"])
+        janela_terminal = self.esperar_janela_aparecer(["TERMINAL 3270", "3270 TERMINAL", "IBM 3270"])
         if not janela_terminal:
             logging.info("Janela do terminal não encontrada. Encerrando.")
             return False
 
+        titulo_extraido = self.extrair_titulo_janela(janela_terminal)
+        if titulo_extraido:
+            logging.info(f"Título extraído do terminal: {titulo_extraido}")
+        else:
+            logging.warning("Não foi possível extrair o título do terminal.")
+            
         try:
             janela_terminal.activate()
         except Exception:
@@ -110,11 +147,11 @@ class Mainframe3270Automation:
         except Exception as e:
             logging.warning(f"Erro ao maximizar a janela: {e}")
 
+        time.sleep(1)
         # Usa o token armazenado durante o processo de login (se houver)
         try:
             has_token, token_message = self.download_terminal.get_stored_token()
             if has_token:
-                logging.info(f"Token de autenticação armazenado detectado: {token_message}. Inserindo no terminal.")
                 self._inserir_token_no_terminal(token_message)
             else:
                 logging.info("Nenhum token armazenado encontrado, continuando operação normal.")
@@ -124,52 +161,56 @@ class Mainframe3270Automation:
 
         # Teclas que geralmente são seguras em terminais 3270
         teclas_seguras = ['f5']
-
+            
         while tempo_limite > 0:
             teclado_ativo = False
-
+            
             def on_press(key):
                 nonlocal teclado_ativo
                 teclado_ativo = True
                 return False  # Parar o listener após a primeira tecla pressionada
-
+                
             listener = keyboard.Listener(on_press=on_press)
             listener.start()
-
-            # Aguarda o listener terminar ou o timeout do intervalo
-            listener.join(timeout=intervalo)
-            if listener.is_alive():
-                try:
-                    listener.stop()
-                except Exception:
-                    pass
-
+            
+            time.sleep(intervalo)
+                
+            listener.stop()
+                
             janela_ativa_antes = pyautogui.getActiveWindow()
-
-            # se terminal está ativo, respeitar atividade do teclado
-            if janela_terminal == janela_ativa_antes and teclado_ativo:
-                logging.info("Terminal ativo com digitação detectada — pulando ação.")
-                tempo_limite -= intervalo
-                continue
-
-            # envia tecla de manutenção
-            tecla_atual = teclas_seguras[int(tempo_limite / intervalo) % len(teclas_seguras)]
-
+                
+            if janela_terminal == janela_ativa_antes:
+                if teclado_ativo:
+                    logging.info("Atividade do teclado detectada. Pulando esta iteração.")
+                    tempo_limite -= intervalo
+                    continue
+                    
+            # Alternar entre teclas seguras
+            tecla_atual = teclas_seguras[int(tempo_limite/intervalo) % len(teclas_seguras)]
+            
             try:
+                estava_minimizada = hasattr(janela_terminal, "isMinimized") and janela_terminal.isMinimized
                 janela_terminal.activate()
-                time.sleep(0.25)
-                pyautogui.press(tecla_atual)
-                logging.info(f"Tecla '{tecla_atual}' pressionada para manter sessão ativa.")
-            except Exception as e:
-                logging.error(f"Erro ao ativar/enviar tecla ao terminal: {e}")
-
-            # tenta restaurar o foco anterior
-            try:
-                if janela_ativa_antes:
-                    janela_ativa_antes.activate()
+                time.sleep(0.5)
+                if estava_minimizada:
+                    janela_terminal.maximize()
             except Exception:
-                pass
-
+                logging.warning("Não foi possível ativar/maximizar a janela do terminal, tentando prosseguir.")
+                
+            # Usar ATTN ou RESET pode ser melhor que ESC em terminais 3270
+            pyautogui.hotkey(tecla_atual)
+            logging.info(f"Tecla '{tecla_atual}' pressionada para manter sessão ativa.")
+                    
+            if janela_ativa_antes:
+                janela_ativa_antes.activate()
+                
+            try:
+                if estava_minimizada:
+                    janela_terminal.minimize()
+                    logging.info("Janela do terminal minimizada novamente.")
+            except Exception:
+                logging.warning("Não foi possível minimizar a janela do terminal novamente.")
+                    
             tempo_limite -= intervalo
-
+                
         return True
