@@ -1,98 +1,164 @@
-# Automação de Terminal 3270 (IBM Mainframe)
+# Automação de Terminal 3270 (SERPRO Mainframe) - RPA
 
-Este projeto demonstra como automatizar interações com sistemas IBM Mainframe através da interface de terminal 3270, usando Python e a biblioteca py3270.
+Este projeto é uma solução de **RPA (Robotic Process Automation)** desenvolvida em Python para automatizar o processo de autenticação, inicialização, configuração e manutenção de sessão ativa (*keep-alive / anti-timeout*) no **Terminal 3270 (Host On Demand - HOD)** do **SERPRO**.
 
-## Sobre o Terminal 3270
+---
 
-O Terminal 3270 é uma interface para interagir com sistemas legados de mainframe IBM:
-- Utilizado em instituições públicas e privadas com sistemas COBOL
-- Acessado através de emuladores TN3270
-- Normalmente exibe menus com sistemas disponíveis como CGRS, ORYX, SGP, SIMCD, etc.
+## 📌 Visão Geral do Funcionamento
 
-## Pré-requisitos
+O fluxo de execução do programa contempla as seguintes etapas automáticas:
 
-1. Python 3.6+
-2. Biblioteca py3270 (`pip install py3270`)
-3. Emulador x3270 ou compatível:
-   - Linux: `sudo apt-get install x3270`
-   - Windows: Baixe e instale x3270 de [x3270.org](http://x3270.org/)
+1. **Solicitação de Credenciais**:
+   - Solicita o CPF e a senha do usuário de forma interativa e segura no terminal (com senha oculta via `getpass`).
+2. **Autenticação Web (Selenium + Edge Driver)**:
+   - Acessa a página de autenticação do SERPRO HOD em modo *headless*.
+   - Preenche as credenciais, submete o formulário e captura eventuais tokens gerados na tela.
+3. **Download e Lançamento do Terminal**:
+   - Realiza o download do arquivo de inicialização da sessão (`.jsp`).
+   - Lança o arquivo no ambiente do sistema operacional (`os.startfile`) para disparar o emulador 3270.
+4. **Tratamento de Janelas e Segurança (PyWinAuto)**:
+   - Detecta e fecha automaticamente a janela de aviso de segurança do Java/Windows.
+   - Trata telas intermediárias (como seleção de impressora no painel de controle, quando aplicável).
+5. **Reconhecimento do Terminal e Inserção de Token (PyAutoGUI)**:
+   - Localiza a janela ativa do Terminal 3270 e a maximiza.
+   - Extrai o identificador da sessão (`AWV`/`AWP`) a partir do título da janela.
+   - Insere o token de autenticação capturado no terminal e confirma com Enter.
+6. **Mecanismo Anti-Timeout (Keep-Alive com Pynput)**:
+   - Mantém a sessão do terminal ativa enviando teclas seguras (`F5`) em intervalos regulares (padrão de 25 segundos, por 10 minutos).
+   - **Detecção de atividade**: se o usuário estiver digitando no terminal, o programa pausa o envio para não interferir na digitação manual.
+7. **Limpeza e Logs**:
+   - Remove arquivos temporários de download com segurança.
+   - Registra todo o histórico detalhado da execução no console e no arquivo `mainframe_automation.log`.
 
-## Configuração
+---
 
-Edite as variáveis no início do arquivo `3270-python-RPA.py`:
-```python
-host = 'seu.mainframe.gov.br'
-username = 'SEU_USUARIO'
-password = 'SUA_SENHA'
-sistema = 'SISTEMA_DESEJADO'
+## 📋 Pré-requisitos de Sistema
+
+- **Sistema Operacional**: Windows 10 ou 11 (64-bit).
+- **Python**: Versão 3.8 ou superior.
+- **Navegador**: Microsoft Edge instalado.
+- **Edge WebDriver**: O executável `msedgedriver.exe` já está incluído na pasta `app/edgedriver_win64/`. Caso a versão do seu Microsoft Edge seja atualizada, certifique-se de baixar o driver correspondente no portal oficial da Microsoft e substituir o binário existente.
+- **Ambiente Java / HOD**: Configuração do sistema pronta para executar arquivos `.jsp` associados ao Host On Demand do SERPRO.
+
+---
+
+## 🚀 Instalação e Configuração
+
+### 1. Clonar ou Acessar o Repositório
+
+Abra o PowerShell ou Prompt de Comando na pasta do projeto:
+
+```powershell
+cd c:\PYTHON\3270-python-RPA
 ```
 
-**Importante**: Para ambientes de produção, utilize variáveis de ambiente ou um sistema de gerenciamento de segredos para credenciais.
+### 2. Criar e Ativar o Ambiente Virtual (Recomendado)
 
-## Como Usar
-
-Execute o script:
-```
-python 3270-python-RPA.py
+```powershell
+python -m venv venv
+.\venv\Scripts\Activate.ps1
 ```
 
-## Funcionalidades Principais
+*(No Prompt de Comando comum: `venv\Scripts\activate.bat`)*
 
-### 1. Leitura da Tela (`string_get`)
+### 3. Instalar as Dependências
 
-Uma das funções mais importantes para automação inteligente é a leitura do conteúdo da tela:
+Instale os pacotes Python necessários através do arquivo `requirements.txt`:
 
-```python
-# Lê o texto na linha 24, coluna 1, com comprimento 40
-texto = emulator.string_get(24, 1, 40)
+```powershell
+pip install -r requirements.txt
 ```
 
-Coordenadas importantes em telas 3270:
-- Linha 1: Geralmente contém o título da tela
-- Linha 24: Geralmente contém mensagens de status ou erro
-- Linhas 2-23: Conteúdo principal e campos de entrada
+---
 
-### 2. Navegação
+## ▶️ Como Executar o Programa
 
-Teclas de função PF são importantes para navegação em sistemas mainframe:
+### Execução via Python (Desenvolvimento)
 
-```python
-# Tecla PF3 (normalmente para voltar/sair)
-emulator.exec_command(b"PF(3)")
+Com o ambiente ativado, execute o ponto de entrada principal:
 
-# Tecla PF1 (normalmente para ajuda)
-emulator.exec_command(b"PF(1)")
+```powershell
+python main.py
 ```
 
-### 3. Automação Avançada
+Durante a execução:
+1. Digite o **CPF** quando solicitado.
+2. Digite a **Senha** (os caracteres não serão exibidos por segurança).
+3. O robô assumirá o controle em segundo plano, realizando o download, abrindo o terminal e mantendo a sessão ativa.
 
-Para automação mais avançada:
-- Use `verify_screen_content()` para validar o estado da tela
-- Implemente loops de espera para telas com carregamento lento
-- Crie funções específicas para cada tipo de operação no seu sistema
+---
 
-## Dicas para Automação de Mainframe
+## ⚙️ Configurações Customizáveis (`app/config.py`)
 
-- **Mapeie a tela**: Antes de automatizar, documente as posições dos campos
-- **Trate erros**: Mainframes frequentemente possuem mensagens de erro específicas
-- **Use timeouts apropriados**: Sistemas mainframe podem ter latência variável
-- **Faça logging detalhado**: Ajuda na depuração de problemas de automação
+No arquivo [app/config.py](file:///c:/PYTHON/3270-python-RPA/app/config.py), você pode ajustar parâmetros como:
 
-## Exemplo de Uso da Função `verify_screen_content`
+- `HOST`: URL do Host On Demand SERPRO (`https://hod.serpro.gov.br/a83016cv/`).
+- `DEFAULT_TIMEOUT` / `ELEMENT_WAIT_TIMEOUT`: Prazos de espera para elementos web e downloads.
+- `SECURITY_CHECK_TIMEOUT`: Tempo limite para interceptar avisos de segurança.
+- `MAX_RETRIES`: Número máximo de tentativas de login e download (padrão: 3).
+- `duracao_total` e `intervalo` (em [app/rpa_3270.py](file:///c:/PYTHON/3270-python-RPA/app/rpa_3270.py)): Tempo total do anti-timeout (padrão: 600 segundos) e intervalo de pulso (padrão: 25 segundos).
 
-```python
-# Verifica se login foi bem-sucedido
-texto, sucesso = verify_screen_content(
-    emulator, 
-    row=24,                        # Linha de status
-    col=1,                         # Primeira coluna
-    length=40,                     # Comprimento a ler
-    expected_text="BEM-VINDO",     # Texto de sucesso
-    error_texts=["SENHA INVÁLIDA", "USUÁRIO BLOQUEADO"]  # Erros possíveis
-)
+---
+
+## 📦 Gerando o Executável e o Instalador
+
+### 1. Criar Executável com PyInstaller
+
+Você pode gerar um arquivo `.exe` portátil executando o arquivo em lote:
+
+```powershell
+.\pyinstaller 3270.bat
 ```
 
-## Recursos Adicionais
+Ou diretamente via comando:
 
-- [Documentação py3270](https://pypi.org/project/py3270/)
-- [Guia de terminais 3270](https://www.ibm.com/support/knowledgecenter/zosbasics/com.ibm.zos.zconcepts/zconc_3270.htm)
+```powershell
+pyinstaller --onefile --noconfirm --add-data "app;app" main.py
+```
+
+O binário final será gerado no diretório `dist/`.
+
+### 2. Criar Instalador Windows (Inno Setup)
+
+Para distribuir o programa como instalador do Windows:
+1. Abra o arquivo [inno 3270.iss](file:///c:/PYTHON/3270-python-RPA/inno 3270.iss) no [Inno Setup Compiler](https://jrsoftware.org/isinfo.php).
+2. Clique em **Compile** (ou pressione `Ctrl + F9`).
+3. O instalador `Terminal3270Setup.exe` será gerado na pasta `Output/`.
+
+---
+
+## 📂 Estrutura de Arquivos
+
+```
+3270-python-RPA/
+│
+├── app/
+│   ├── edgedriver_win64/
+│   │   └── msedgedriver.exe      # Driver do Edge para automação web
+│   ├── __init__.py               # Inicializador do pacote Python
+│   ├── config.py                 # Configurações gerais e logging
+│   ├── credential_manager.py     # Coleta segura de credenciais (CPF/Senha)
+│   ├── download_terminal.py      # Automação Selenium para login e download do .jsp
+│   ├── open_3270.py              # Orquestrador do ciclo de vida e lançamento
+│   └── rpa_3270.py               # RPA desktop, detecção de janelas e anti-timeout
+│
+├── main.py                       # Ponto de entrada da aplicação
+├── requirements.txt              # Dependências do projeto
+├── pyinstaller 3270.bat          # Script de empacotamento com PyInstaller
+├── inno 3270.iss                 # Script de criação de instalador Windows
+└── README.md                     # Documentação do projeto
+```
+
+---
+
+## 🔍 Logs e Diagnóstico
+
+- O log de execução é exibido em tempo real no console e salvo simultaneamente em [mainframe_automation.log](file:///c:/PYTHON/3270-python-RPA/mainframe_automation.log).
+- Caso o terminal não seja localizado ou o login falhe, consulte o log para verificar em qual etapa ocorreu a interrupção (ex: timeout de elemento, divergência de versão do WebDriver ou título de janela não reconhecido).
+
+---
+
+## 🔒 Segurança e LGPD
+
+- As credenciais de acesso (CPF e senha) são solicitadas em tempo de execução e **não** são salvas em arquivos locais ou em disco.
+- Todos os arquivos temporários baixados durante o processo são excluídos automaticamente após o uso.

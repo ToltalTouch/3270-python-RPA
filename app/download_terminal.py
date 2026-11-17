@@ -183,4 +183,3 @@ class DownloadTerminal:
                 logging.error(f"Erro ao encerrar o WebDriver: {str(e)}")
         else:
             logging.warning("WebDriver já está encerrado ou não foi inicializado.")
-        return self._driverquit()
